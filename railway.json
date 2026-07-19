@@ -1,0 +1,41 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE"
+  },
+  "services": {
+    "backend-api": {
+      "name": "Backend API",
+      "build": {
+        "builder": "DOCKER",
+        "dockerfilePath": "backend/Dockerfile",
+        "watchPatterns": ["backend/**"]
+      },
+      "deploy": {
+        "healthcheckPath": "/docs"
+      }
+    },
+    "background-worker": {
+      "name": "Worker Redis",
+      "build": {
+        "builder": "DOCKER",
+        "dockerfilePath": "backend/Dockerfile.worker",
+        "watchPatterns": ["backend/**"]
+      }
+    },
+    "frontend-ui": {
+      "name": "Frontend Dashboard",
+      "build": {
+        "builder": "NIXPACKS",
+        "watchPatterns": ["frontend/**"]
+      },
+      "deploy": {
+        "startCommand": "npm run dev"
+      }
+    }
+  }
+}
