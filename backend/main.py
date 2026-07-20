@@ -243,6 +243,54 @@ async def create_contact(request: Request):
     }).execute()
     return {"status": "success", "data": res.data[0] if res.data else None}
 
+# --- CAMPAIGNS API ---
+
+@app.get("/api/campaigns")
+async def get_campaigns():
+    """Get all campaigns"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"data": []}
+    
+    # Needs to fetch campaign and template name
+    res = supabase_admin.table('campaigns').select('*, templates(name)').eq('workspace_id', ws_id).order('created_at', desc=True).execute()
+    
+    formatted = []
+    for c in res.data:
+        formatted.append({
+            'id': c['id'],
+            'name': c['name'],
+            'status': c['status'],
+            'recipient_count': c['recipient_count'],
+            'sent_count': c['sent_count'],
+            'template_name': c.get('templates', {}).get('name') if c.get('templates') else 'Unknown Template',
+            'created_at': c['created_at'],
+        })
+    return {"data": formatted}
+
+@app.post("/api/campaigns")
+async def create_campaign(request: Request):
+    """Create a new campaign"""
+    data = await request.json()
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    name = data.get('name')
+    # For demo we skip template_id check if missing, just create the record
+    
+    if not name:
+        raise HTTPException(status_code=400, detail="Name required")
+        
+    res = supabase_admin.table('campaigns').insert({
+        'workspace_id': ws_id,
+        'name': name,
+        'status': 'scheduled',
+        'recipient_count': data.get('recipient_count', 0),
+        'scheduled_at': data.get('scheduled_at')
+    }).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
 # --- SETTINGS API ---
 
 def _get_demo_workspace_id():
