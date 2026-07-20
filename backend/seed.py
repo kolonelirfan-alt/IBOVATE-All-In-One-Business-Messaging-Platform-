@@ -1,19 +1,19 @@
 import os
-from database import supabase
+from database import supabase_admin
 from datetime import datetime, timedelta
 
 def seed_db():
     print("Seeding database...")
     
     # 1. Create Workspace
-    workspace = supabase.table('workspaces').insert({
+    workspace = supabase_admin.table('workspaces').insert({
         "name": "Elegant Beauty (Demo)",
         "plan": "premium"
     }).execute()
     ws_id = workspace.data[0]['id']
     
     # 2. Create Channel
-    channel = supabase.table('channels').insert({
+    channel = supabase_admin.table('channels').insert({
         "workspace_id": ws_id,
         "type": "whatsapp",
         "external_account_id": "123456789",
@@ -22,17 +22,16 @@ def seed_db():
     ch_id = channel.data[0]['id']
     
     # 3. Create Contact
-    contact = supabase.table('contacts').insert({
+    contact = supabase_admin.table('contacts').insert({
         "workspace_id": ws_id,
         "channel_id": ch_id,
         "external_id": "6281234567890",
-        "name": "Rina Gunawan",
-        "phone": "+6281234567890"
+        "name": "Rina Gunawan"
     }).execute()
     c_id = contact.data[0]['id']
     
     # 4. Create Conversation
-    conversation = supabase.table('conversations').insert({
+    conversation = supabase_admin.table('conversations').insert({
         "workspace_id": ws_id,
         "contact_id": c_id,
         "status": "open",
@@ -57,7 +56,7 @@ def seed_db():
             "sent_at": (datetime.utcnow() - timedelta(minutes=5)).isoformat()
         }
     ]
-    supabase.table('messages').insert(messages).execute()
+    supabase_admin.table('messages').insert(messages).execute()
     
     print(f"Seed complete! Workspace ID: {ws_id}")
 

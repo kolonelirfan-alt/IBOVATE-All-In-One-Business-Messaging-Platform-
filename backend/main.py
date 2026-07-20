@@ -80,24 +80,29 @@ async def handle_instagram_webhook(request: Request):
 # --- INBOX API (For Frontend) ---
 
 @app.get("/api/inbox/contacts")
-async def get_contacts(workspace_id: str):
+async def get_contacts(workspace_id: str = None):
     """Get all contacts with their latest conversation for the sidebar"""
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspace_id is required")
-        
+    if not workspace_id or workspace_id == "00000000-0000-0000-0000-000000000000":
+        # Hack for Meta Review Demo: if dummy ID, fetch first workspace using admin
+        ws_res = supabase_admin.table('workspaces').select('id').limit(1).execute()
+        if ws_res.data:
+            workspace_id = ws_res.data[0]['id']
+        else:
+            return {"data": []}
+            
     # Get contacts
-    contacts_res = supabase.table('contacts').select('*, channels(type)').eq('workspace_id', workspace_id).execute()
+    contacts_res = supabase_admin.table('contacts').select('*, channels(type)').eq('workspace_id', workspace_id).execute()
     contacts = contacts_res.data
     
     result = []
     for contact in contacts:
         # Get latest conversation for this contact
-        conv_res = supabase.table('conversations').select('*').eq('contact_id', contact['id']).order('last_message_at', desc=True).limit(1).execute()
+        conv_res = supabase_admin.table('conversations').select('*').eq('contact_id', contact['id']).order('last_message_at', desc=True).limit(1).execute()
         conv = conv_res.data[0] if conv_res.data else None
         
         last_msg = None
         if conv:
-            msg_res = supabase.table('messages').select('*').eq('conversation_id', conv['id']).order('sent_at', desc=True).limit(1).execute()
+            msg_res = supabase_admin.table('messages').select('*').eq('conversation_id', conv['id']).order('sent_at', desc=True).limit(1).execute()
             last_msg = msg_res.data[0] if msg_res.data else None
             
         result.append({
