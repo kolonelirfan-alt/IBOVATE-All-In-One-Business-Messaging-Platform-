@@ -290,6 +290,62 @@ async def connect_instagram_channel(request: Request):
     q.enqueue(worker.connect_instagram_channel, workspace_id, code)
     return {"status": "processing"}
 
+# --- API TOKEN API ---
+import secrets
+
+@app.get("/api/workspace/api-tokens")
+async def get_api_tokens(token_type: str = None):
+    """Get all API tokens for the workspace"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"data": []}
+    
+    query = supabase_admin.table('api_tokens').select('id, name, token, type, is_active, last_used_at, created_at').eq('workspace_id', ws_id).eq('is_active', True)
+    if token_type:
+        query = query.eq('type', token_type)
+    tokens = query.order('created_at', desc=True).execute()
+    
+    # Mask token — show only first 8 + last 4 characters
+    result = []
+    for t in tokens.data:
+        masked = t['token'][:8] + '•' * 20 + t['token'][-4:]
+        result.append({**t, 'token_display': masked})
+    return {"data": result}
+
+@app.post("/api/workspace/api-tokens")
+async def create_api_token(request: Request):
+    """Generate a new API token"""
+    data = await request.json()
+    name = data.get("name", "My API Token")
+    token_type = data.get("type", "omnichannel")  # 'omnichannel' | 'chatbot'
+    
+    if token_type not in ("omnichannel", "chatbot"):
+        raise HTTPException(status_code=400, detail="type must be 'omnichannel' or 'chatbot'")
+    
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    # Generate a secure random token
+    new_token = f"ibv_{token_type[:3]}_{secrets.token_hex(24)}"
+    
+    res = supabase_admin.table('api_tokens').insert({
+        "workspace_id": ws_id,
+        "name": name,
+        "token": new_token,
+        "type": token_type,
+        "is_active": True
+    }).execute()
+    
+    # Return the full token ONCE — user must copy it now
+    return {"status": "success", "token": new_token, "data": res.data[0] if res.data else None}
+
+@app.delete("/api/workspace/api-tokens/{token_id}")
+async def revoke_api_token(token_id: str):
+    """Revoke (deactivate) an API token"""
+    supabase_admin.table('api_tokens').update({"is_active": False}).eq('id', token_id).execute()
+    return {"status": "success", "message": "Token revoked"}
+
 # --- SEED API (For Meta Review Demo) ---
 from database import supabase_admin
 from datetime import timedelta
