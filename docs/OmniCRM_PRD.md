@@ -62,7 +62,7 @@ OmniCRM adalah platform CRM omnichannel berbasis SaaS yang menyatukan percakapan
 | Auth | Supabase Auth — Google OAuth | Login cepat untuk user, tidak perlu bangun sistem auth sendiri |
 | Queue/Worker | Redis + background worker | Webhook processing & echo-message sync tidak boleh blocking |
 | Automation (non-core) | N8N — **dibatasi** hanya untuk automasi internal (notifikasi tim, report berkala) | Logic customer-facing (chatbot, routing, broadcast) TIDAK boleh ada di N8N — lihat Bagian 4.5 |
-| Frontend | Next.js atau React SPA | Dashboard interaktif, harus polished untuk App Review screencast |
+| Frontend | Next.js (App Router) | Dashboard interaktif, harus polished untuk App Review screencast |
 | Deployment | Railway, dengan Dockerfile eksplisit per service (backend, worker) | Kontrol penuh atas versi dependency, bukan pasrah ke auto-detect |
 | AI Provider | OpenRouter/Mistral (sesuai pengalaman WA Assistant sebelumnya) | Sudah familiar, cost-efficient |
 

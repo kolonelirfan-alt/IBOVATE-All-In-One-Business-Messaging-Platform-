@@ -15,7 +15,7 @@
 | Auth | Supabase Auth — Google OAuth |
 | Queue/Worker | Redis + background worker (async) |
 | Automation (non-core only) | N8N — hanya notifikasi internal & report, TIDAK untuk logic customer-facing |
-| Frontend | Next.js / React SPA |
+| Frontend | Next.js (App Router) |
 | Deployment | Railway, Dockerfile eksplisit per service |
 | Realtime | Supabase Realtime (push update ke frontend) |
 | AI Provider | OpenRouter/Mistral |
