@@ -17,11 +17,17 @@ export interface Contact {
   tags: string[];
   last_message_at: string;
   last_message_preview: string;
+  conversation_id?: string;
+  priority?: 'low' | 'medium' | 'high';
+  ticket_status?: 'open' | 'pending' | 'resolved';
+  assigned_to?: string | null;
 }
 
 export interface Conversation {
   id: string;
   contact_id: string;
   status: 'open' | 'pending' | 'resolved';
+  priority?: 'low' | 'medium' | 'high';
+  assigned_to?: string | null;
   messages: Message[];
 }

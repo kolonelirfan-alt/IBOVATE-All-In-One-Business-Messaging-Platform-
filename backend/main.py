@@ -112,6 +112,9 @@ async def get_contacts(workspace_id: str = None):
             "phone": contact.get('phone'),
             "channel": contact['channels']['type'] if contact.get('channels') else 'unknown',
             "status": 'online' if conv and conv.get('status') == 'open' else 'offline',
+            "ticket_status": conv.get('status') if conv else None,
+            "priority": conv.get('priority') if conv else None,
+            "assigned_to": conv.get('assigned_to') if conv else None,
             "tags": [],
             "last_message_at": last_msg['sent_at'] if last_msg else None,
             "last_message_preview": last_msg['content'] if last_msg else None,
@@ -120,10 +123,42 @@ async def get_contacts(workspace_id: str = None):
         
     return {"data": result}
 
+@app.get("/api/inbox/counts")
+async def get_counts(workspace_id: str = None):
+    """Get badge counts per filter category"""
+    if not workspace_id or workspace_id == "00000000-0000-0000-0000-000000000000":
+        ws_res = supabase_admin.table('workspaces').select('id').limit(1).execute()
+        if ws_res.data:
+            workspace_id = ws_res.data[0]['id']
+        else:
+            return {"all": 0, "unassigned": 0, "assigned": 0, "resolved": 0}
+
+    all_convs = supabase_admin.table('conversations').select('id, status, assigned_to').eq('workspace_id', workspace_id).execute().data
+    
+    return {
+        "all": len([c for c in all_convs if c.get('status') != 'resolved']),
+        "unassigned": len([c for c in all_convs if not c.get('assigned_to') and c.get('status') != 'resolved']),
+        "assigned": len([c for c in all_convs if c.get('assigned_to') and c.get('status') != 'resolved']),
+        "resolved": len([c for c in all_convs if c.get('status') == 'resolved']),
+    }
+
+@app.patch("/api/inbox/conversations/{conversation_id}")
+async def update_conversation(conversation_id: str, request: Request):
+    """Update conversation status, assigned_to, or priority"""
+    data = await request.json()
+    allowed_fields = {"status", "assigned_to", "priority"}
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    res = supabase_admin.table('conversations').update(update_data).eq('id', conversation_id).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
 @app.get("/api/inbox/conversations/{conversation_id}/messages")
 async def get_messages(conversation_id: str):
     """Get all messages for a specific conversation"""
-    msg_res = supabase.table('messages').select('*').eq('conversation_id', conversation_id).order('sent_at', desc=False).execute()
+    msg_res = supabase_admin.table('messages').select('*').eq('conversation_id', conversation_id).order('sent_at', desc=False).execute()
     return {"data": msg_res.data}
 
 @app.post("/api/inbox/messages")
