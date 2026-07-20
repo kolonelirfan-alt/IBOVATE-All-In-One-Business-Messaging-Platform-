@@ -192,6 +192,57 @@ async def send_message(request: Request):
     
     return {"status": "success", "data": res.data[0] if res.data else None}
 
+# --- CONTACTS API ---
+
+@app.get("/api/contacts")
+async def get_contacts(q: str = None):
+    """Get all contacts with optional search"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"data": []}
+    
+    query = supabase_admin.table('contacts').select('id, name, phone, external_id, created_at, channel_id, channels(type)').eq('workspace_id', ws_id)
+    if q:
+        query = query.ilike('name', f'%{q}%')
+    
+    res = query.order('created_at', desc=True).execute()
+    
+    # Format the data for the frontend
+    formatted = []
+    for c in res.data:
+        channel_type = c.get('channels', {}).get('type') if c.get('channels') else 'unknown'
+        formatted.append({
+            'id': c['id'],
+            'name': c['name'] or c['external_id'],
+            'phone': c['phone'] or c['external_id'],
+            'channel': channel_type,
+            'created_at': c['created_at'],
+            'tags': [] # We can fetch tags later if needed
+        })
+    return {"data": formatted}
+
+@app.post("/api/contacts")
+async def create_contact(request: Request):
+    """Create a new manual contact"""
+    data = await request.json()
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    name = data.get('name')
+    phone = data.get('phone')
+    
+    if not name or not phone:
+        raise HTTPException(status_code=400, detail="Name and phone required")
+        
+    res = supabase_admin.table('contacts').insert({
+        'workspace_id': ws_id,
+        'name': name,
+        'phone': phone,
+        'external_id': phone, # Use phone as external ID for manual contacts
+    }).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
 # --- SETTINGS API ---
 
 def _get_demo_workspace_id():
