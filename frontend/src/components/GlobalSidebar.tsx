@@ -72,20 +72,28 @@ const HelpIcon = () => (
   </svg>
 );
 
-const navItems: NavItem[] = [
-  { name: 'Dashboard', path: '/dashboard', icon: <GridIcon /> },
-  { name: 'Inbox', path: '/inbox', icon: <ChatIcon />, badge: 7, badgeType: 'count' },
-  { name: 'Calls', path: '/calls', icon: <PhoneIcon />, badge: 'NEW', badgeType: 'new' },
-  { name: 'Campaign', path: '/broadcast', icon: <MegaphoneIcon /> },
-  { name: 'Contacts', path: '/contacts', icon: <UsersIcon /> },
-  { name: 'Bot & Automation', path: '/automation', icon: <BotIcon /> },
-  { name: 'Report', path: '/report', icon: <BarChartIcon /> },
-  { name: 'Integrations', path: '/integrations', icon: <LinkIcon /> },
-  { name: 'Settings', path: '/settings', icon: <SettingsIcon /> },
+const BASE_NAV_ITEMS = [
+  { name: 'Dashboard', path: '/dashboard', icon: <GridIcon />, badgeKey: null, badgeType: 'count' as const },
+  { name: 'Inbox', path: '/inbox', icon: <ChatIcon />, badgeKey: 'all' as const, badgeType: 'count' as const },
+  { name: 'Calls', path: '/calls', icon: <PhoneIcon />, badgeKey: null, badge: 'NEW', badgeType: 'new' as const },
+  { name: 'Campaign', path: '/broadcast', icon: <MegaphoneIcon />, badgeKey: null, badgeType: 'count' as const },
+  { name: 'Contacts', path: '/contacts', icon: <UsersIcon />, badgeKey: null, badgeType: 'count' as const },
+  { name: 'Bot & Automation', path: '/automation', icon: <BotIcon />, badgeKey: null, badgeType: 'count' as const },
+  { name: 'Report', path: '/report', icon: <BarChartIcon />, badgeKey: null, badgeType: 'count' as const },
+  { name: 'Integrations', path: '/integrations', icon: <LinkIcon />, badgeKey: null, badgeType: 'count' as const },
+  { name: 'Settings', path: '/settings', icon: <SettingsIcon />, badgeKey: null, badgeType: 'count' as const },
 ];
 
 export default function GlobalSidebar() {
   const pathname = usePathname();
+  const [inboxCount, setInboxCount] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/proxy/counts')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.all) setInboxCount(data.all); })
+      .catch(() => {});
+  }, []);
 
   return (
     <nav className="global-sidebar">
@@ -111,15 +119,16 @@ export default function GlobalSidebar() {
 
       {/* Nav Items */}
       <div className="nav-section">
-        {navItems.map((item) => {
+        {BASE_NAV_ITEMS.map((item) => {
           const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
+          const liveBadge = item.badgeKey === 'all' ? inboxCount : (item as any).badge;
           return (
             <Link key={item.path} href={item.path} className={`nav-item ${isActive ? 'active' : ''}`}>
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{item.name}</span>
-              {item.badge !== undefined && (
+              {liveBadge != null && liveBadge !== 0 && (
                 <span className={`nav-badge ${item.badgeType === 'new' ? 'new' : ''}`}>
-                  {item.badge}
+                  {liveBadge}
                 </span>
               )}
             </Link>

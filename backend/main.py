@@ -192,6 +192,78 @@ async def send_message(request: Request):
     
     return {"status": "success", "data": res.data[0] if res.data else None}
 
+# --- SETTINGS API ---
+
+def _get_demo_workspace_id():
+    ws_res = supabase_admin.table('workspaces').select('id').limit(1).execute()
+    return ws_res.data[0]['id'] if ws_res.data else None
+
+@app.get("/api/workspace")
+async def get_workspace():
+    """Get current workspace info"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    ws = supabase_admin.table('workspaces').select('*').eq('id', ws_id).single().execute()
+    return {"data": ws.data}
+
+@app.patch("/api/workspace")
+async def update_workspace(request: Request):
+    """Update workspace name / settings"""
+    data = await request.json()
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    allowed = {"name"}
+    update_data = {k: v for k, v in data.items() if k in allowed}
+    res = supabase_admin.table('workspaces').update(update_data).eq('id', ws_id).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
+@app.get("/api/workspace/agents")
+async def get_agents():
+    """Get all agents in the workspace"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"data": []}
+    agents = supabase_admin.table('users').select('id, email, role, created_at').eq('workspace_id', ws_id).execute()
+    return {"data": agents.data}
+
+@app.get("/api/channels")
+async def get_channels():
+    """Get all connected channels"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"data": []}
+    channels = supabase_admin.table('channels').select('*').eq('workspace_id', ws_id).execute()
+    return {"data": channels.data}
+
+@app.delete("/api/channels/{channel_id}")
+async def delete_channel(channel_id: str):
+    """Disconnect a channel"""
+    supabase_admin.table('channels').update({"status": "disconnected"}).eq('id', channel_id).execute()
+    return {"status": "success"}
+
+# --- DASHBOARD ANALYTICS API ---
+
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats():
+    """Get overview statistics for the dashboard"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"total_contacts": 0, "open_conversations": 0, "resolved_today": 0}
+    
+    contacts = supabase_admin.table('contacts').select('id', count='exact').eq('workspace_id', ws_id).execute()
+    convs = supabase_admin.table('conversations').select('id, status', count='exact').eq('workspace_id', ws_id).execute()
+    open_convs = [c for c in convs.data if c['status'] == 'open']
+    resolved_convs = [c for c in convs.data if c['status'] == 'resolved']
+    
+    return {
+        "total_contacts": contacts.count or 0,
+        "total_conversations": convs.count or 0,
+        "open_conversations": len(open_convs),
+        "resolved_conversations": len(resolved_convs),
+    }
+
 # --- CHANNEL CONNECTION API ---
 
 @app.post("/api/channels/whatsapp/connect")
