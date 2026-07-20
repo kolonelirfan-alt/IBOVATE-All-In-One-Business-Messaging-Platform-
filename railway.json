@@ -10,10 +10,11 @@
   "services": {
     "backend-api": {
       "name": "Backend API",
+      "rootDirectory": "/backend",
       "build": {
         "builder": "DOCKER",
-        "dockerfilePath": "backend/Dockerfile",
-        "watchPatterns": ["backend/**"]
+        "dockerfilePath": "Dockerfile",
+        "watchPatterns": ["**"]
       },
       "deploy": {
         "healthcheckPath": "/docs"
@@ -21,17 +22,19 @@
     },
     "background-worker": {
       "name": "Worker Redis",
+      "rootDirectory": "/backend",
       "build": {
         "builder": "DOCKER",
-        "dockerfilePath": "backend/Dockerfile.worker",
-        "watchPatterns": ["backend/**"]
+        "dockerfilePath": "Dockerfile.worker",
+        "watchPatterns": ["**"]
       }
     },
     "frontend-ui": {
       "name": "Frontend Dashboard",
+      "rootDirectory": "/frontend",
       "build": {
         "builder": "NIXPACKS",
-        "watchPatterns": ["frontend/**"]
+        "watchPatterns": ["**"]
       },
       "deploy": {
         "startCommand": "npm run start"
