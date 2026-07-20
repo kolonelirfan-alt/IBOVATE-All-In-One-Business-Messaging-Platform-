@@ -291,6 +291,55 @@ async def create_campaign(request: Request):
     }).execute()
     return {"status": "success", "data": res.data[0] if res.data else None}
 
+# --- AUTOMATION API ---
+
+@app.get("/api/automation/rules")
+async def get_automation_rules():
+    """Get all automation rules for the workspace"""
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        return {"data": []}
+    
+    res = supabase_admin.table('automation_rules').select('*').eq('workspace_id', ws_id).order('created_at', desc=True).execute()
+    return {"data": res.data}
+
+@app.post("/api/automation/rules")
+async def create_automation_rule(request: Request):
+    """Create a new automation rule"""
+    data = await request.json()
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    required = ['name', 'trigger_type', 'action_type']
+    for req in required:
+        if not data.get(req):
+            raise HTTPException(status_code=400, detail=f"{req} is required")
+            
+    res = supabase_admin.table('automation_rules').insert({
+        'workspace_id': ws_id,
+        'name': data['name'],
+        'trigger_type': data['trigger_type'],
+        'trigger_value': data.get('trigger_value'),
+        'action_type': data['action_type'],
+        'action_value': data.get('action_value'),
+        'is_active': True
+    }).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
+@app.patch("/api/automation/rules/{rule_id}")
+async def update_automation_rule(rule_id: str, request: Request):
+    """Toggle or update an automation rule"""
+    data = await request.json()
+    allowed = {'is_active', 'name', 'trigger_value', 'action_value'}
+    update_data = {k: v for k, v in data.items() if k in allowed}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+        
+    res = supabase_admin.table('automation_rules').update(update_data).eq('id', rule_id).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
 # --- SETTINGS API ---
 
 def _get_demo_workspace_id():
