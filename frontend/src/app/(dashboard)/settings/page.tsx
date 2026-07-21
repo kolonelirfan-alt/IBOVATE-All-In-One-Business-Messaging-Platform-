@@ -110,28 +110,18 @@ function AgentsTab({ agents }: { agents: Agent[] }) {
 }
 
 function ChannelsTab({ channels }: { channels: Channel[] }) {
-  const cc = (t: string) => t === 'whatsapp' ? '#25d366' : t === 'instagram' ? '#e1306c' : '#6b7280';
-  const ci = (t: string) => t === 'whatsapp' ? '📱' : t === 'instagram' ? '📷' : '✉️';
   return (
     <div>
-      <SectionHeader title="Connected Channels" description="Manage your messaging channel integrations." />
-      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-        <button style={{ padding: '8px 18px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}>+ Add Channel</button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {channels.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-2)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>No channels connected.</div>
-        ) : channels.map(ch => (
-          <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', background: 'var(--bg-2)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: cc(ch.type), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>{ci(ch.type)}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, textTransform: 'capitalize', marginBottom: 2 }}>{ch.type} Business</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{ch.external_account_id}</div>
-            </div>
-            <span style={{ padding: '3px 12px', borderRadius: 'var(--radius-full)', fontSize: '0.72rem', fontWeight: 700, background: ch.status === 'active' ? 'var(--status-new-bg)' : 'var(--bg-3)', color: ch.status === 'active' ? 'var(--status-new-text)' : 'var(--text-muted)' }}>{ch.status}</span>
-            <button style={{ background: 'none', border: '1px solid var(--status-breached-text)', color: 'var(--status-breached-text)', padding: '6px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>Disconnect</button>
-          </div>
-        ))}
+      <SectionHeader title="Connected Channels" description="Channel management has moved to the Integrations marketplace." />
+      <div style={{ padding: '4rem 2rem', textAlign: 'center', background: 'var(--bg-2)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔗</div>
+        <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Channel Management Has Moved</div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: 400, margin: '0 auto 2rem' }}>
+          We have upgraded to a new Integrations Marketplace where you can connect WhatsApp, Instagram, and more in one place.
+        </div>
+        <a href="/integrations" style={{ padding: '10px 24px', background: 'var(--primary)', color: 'white', textDecoration: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.9rem', display: 'inline-block' }}>
+          Go to Integrations
+        </a>
       </div>
     </div>
   );

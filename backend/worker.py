@@ -9,39 +9,7 @@ supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def connect_whatsapp_channel(workspace_id: str, access_token: str):
-    logger.info(f"Connecting WA channel for workspace {workspace_id}")
-    # TODO: In real life, call Meta Graph API to exchange token and get WABA ID
-    simulated_waba_id = "waba_" + access_token[:8]
-    
-    # Upsert channel
-    response = supabase.table("channels").insert({
-        "workspace_id": workspace_id,
-        "type": "whatsapp",
-        "external_account_id": simulated_waba_id,
-        "coexistence_enabled": True,
-        "status": "active",
-        "historical_sync_status": "syncing",
-        "historical_sync_started_at": datetime.utcnow().isoformat()
-    }).execute()
-    
-    if hasattr(response, 'data') and len(response.data) > 0:
-        channel_id = response.data[0]['id']
-        logger.info(f"Channel {channel_id} created. Starting historical backfill simulation...")
-        
-        # Simulate backfill payload from Meta
-        simulate_historical_backfill(workspace_id, channel_id, simulated_waba_id)
-
-def connect_instagram_channel(workspace_id: str, code: str):
-    logger.info(f"Connecting IG channel for workspace {workspace_id}")
-    simulated_ig_id = "ig_" + code[:8]
-    
-    supabase.table("channels").insert({
-        "workspace_id": workspace_id,
-        "type": "instagram",
-        "external_account_id": simulated_ig_id,
-        "status": "active"
-    }).execute()
+# Removed connect functions as they are handled synchronously in main.py now.
 
 def simulate_historical_backfill(workspace_id: str, channel_id: str, waba_id: str):
     logger.info("Simulating Historical Backfill batch...")
@@ -99,7 +67,6 @@ def simulate_historical_backfill(workspace_id: str, channel_id: str, waba_id: st
 
 def process_whatsapp_webhook(payload: dict):
     logger.info("Processing WhatsApp webhook")
-    # For a real implementation, we parse entry[0].changes[0].value
     try:
         entries = payload.get("entry", [])
         for entry in entries:
@@ -107,36 +74,95 @@ def process_whatsapp_webhook(payload: dict):
             for change in changes:
                 value = change.get("value", {})
                 
-                # Identify if it's an echo (sent from WA Business App)
-                is_echo = False
-                source = "customer"
-                direction = "in"
-                
-                if "statuses" in value:
-                    # Message status update (delivered, read)
+                # We need the phone_number_id to find our channel
+                metadata = value.get("metadata", {})
+                phone_number_id = metadata.get("phone_number_id")
+                if not phone_number_id:
                     continue
                     
+                # Find channel
+                channel_res = supabase.table("channels").select("*").eq("meta_phone_id", phone_number_id).execute()
+                if not channel_res.data:
+                    logger.warning(f"Webhook received for unknown phone_number_id: {phone_number_id}")
+                    continue
+                channel = channel_res.data[0]
+                workspace_id = channel["workspace_id"]
+                
                 if "messages" in value:
-                    message_info = value["messages"][0]
-                    # Check if it's an echo message (meta usually provides specific fields for this depending on setup, but often you check the `from` vs `waba_id`)
-                    # We will mock the detection
-                    if message_info.get("type") == "echo" or message_info.get("from") == "me":
-                        is_echo = True
-                        source = "app_echo"
-                        direction = "out"
+                    for message_info in value["messages"]:
+                        meta_message_id = message_info.get("id")
                         
-                    meta_message_id = message_info.get("id")
-                    
-                    # Deduplication check
-                    existing = supabase.table("messages").select("id").eq("meta_message_id", meta_message_id).execute()
-                    if existing.data:
-                        logger.info("Message already exists, skipping duplicate.")
-                        continue
+                        # Deduplication check
+                        existing = supabase.table("messages").select("id").eq("meta_message_id", meta_message_id).execute()
+                        if existing.data:
+                            logger.info("Message already exists, skipping duplicate.")
+                            continue
                         
-                    # Save to DB logic here...
-                    # (Find conversation, update session_expires_at if customer, insert message)
-                    # session_expires_at = sent_at + 24h IF source == 'customer'
-                    logger.info(f"Processed message {meta_message_id}, Source: {source}")
+                        from_number = message_info.get("from")
+                        timestamp = message_info.get("timestamp")
+                        message_type = message_info.get("type", "text")
+                        
+                        content = ""
+                        if message_type == "text":
+                            content = message_info.get("text", {}).get("body", "")
+                        
+                        # Get contact info (Meta provides it in "contacts" array)
+                        contacts_info = value.get("contacts", [])
+                        contact_name = from_number
+                        for c in contacts_info:
+                            if c.get("wa_id") == from_number:
+                                contact_name = c.get("profile", {}).get("name", from_number)
+                                break
+                                
+                        # 1. Upsert Contact
+                        contact_res = supabase.table("contacts").select("*").eq("channel_id", channel["id"]).eq("external_id", from_number).execute()
+                        if not contact_res.data:
+                            new_contact = supabase.table("contacts").insert({
+                                "workspace_id": workspace_id,
+                                "channel_id": channel["id"],
+                                "external_id": from_number,
+                                "name": contact_name,
+                                "phone": f"+{from_number}"
+                            }).execute()
+                            contact_id = new_contact.data[0]["id"]
+                        else:
+                            contact_id = contact_res.data[0]["id"]
+                            
+                        # 2. Upsert Conversation
+                        conv_res = supabase.table("conversations").select("*").eq("contact_id", contact_id).execute()
+                        if not conv_res.data:
+                            new_conv = supabase.table("conversations").insert({
+                                "workspace_id": workspace_id,
+                                "contact_id": contact_id,
+                                "status": "open"
+                            }).execute()
+                            conv_id = new_conv.data[0]["id"]
+                        else:
+                            conv_id = conv_res.data[0]["id"]
+                            # If it was resolved, open it again since customer replied
+                            if conv_res.data[0]["status"] == "resolved":
+                                supabase.table("conversations").update({"status": "open"}).eq("id", conv_id).execute()
+                        
+                        # 3. Insert Message
+                        sent_at = datetime.fromtimestamp(int(timestamp)).isoformat() if timestamp else datetime.utcnow().isoformat()
+                        
+                        supabase.table("messages").insert({
+                            "conversation_id": conv_id,
+                            "direction": "in",
+                            "source": "customer",
+                            "content": content,
+                            "meta_message_id": meta_message_id,
+                            "sent_at": sent_at
+                        }).execute()
+                        
+                        # 4. Update Conversation last message time
+                        session_expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+                        supabase.table("conversations").update({
+                            "last_message_at": sent_at,
+                            "session_expires_at": session_expires_at
+                        }).eq("id", conv_id).execute()
+                        
+                        logger.info(f"Processed message {meta_message_id} from {from_number}")
     except Exception as e:
         logger.error(f"Failed to process WA webhook: {e}")
 
