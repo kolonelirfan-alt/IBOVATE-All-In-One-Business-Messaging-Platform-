@@ -3,8 +3,8 @@ from config import settings
 import logging
 from datetime import datetime, timedelta
 
-# Initialize Supabase client
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
+# Initialize Supabase admin client for worker
+supabase: Client = create_client(settings.supabase_url, settings.supabase_service_role_key)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -259,7 +259,7 @@ def _handle_ig_message(message_info: dict):
     logger.info(f"Processed IG message {meta_message_id} from {sender_id}")
 
 def process_instagram_webhook(payload: dict):
-    logger.info("Processing Instagram webhook")
+    logger.info(f"Processing Instagram webhook, payload: {payload}")
     try:
         # Check if it's the Meta "Test" button payload format
         if "value" in payload and payload.get("field") == "messages":
