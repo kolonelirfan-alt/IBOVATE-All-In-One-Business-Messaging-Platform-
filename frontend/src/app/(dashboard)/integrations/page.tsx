@@ -422,7 +422,11 @@ export default function IntegrationsPage() {
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: 'var(--bg-1)', padding: '2rem', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 450, border: '1px solid var(--border)' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Connect {connectingId === 'whatsapp' ? 'WhatsApp Meta API' : 'Instagram API'}</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Authorize your Meta account to connect this channel automatically.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>Authorize your Meta account to connect this channel automatically.</p>
+            <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.25rem' }}>Why we need these permissions:</strong>
+              We require <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>whatsapp_business_management</code> and <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>instagram_manage_messages</code> to allow you to read and reply to customer conversations directly from your OmniCRM inbox. We never post on your behalf.
+            </div>
             
             {/* Facebook Login Button */}
             <div style={{ marginBottom: '2rem', textAlign: 'center' }}>

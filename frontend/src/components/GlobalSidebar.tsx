@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 interface NavItem {
   name: string;
@@ -87,6 +88,21 @@ const BASE_NAV_ITEMS = [
 export default function GlobalSidebar() {
   const pathname = usePathname();
   const [inboxCount, setInboxCount] = React.useState<number | null>(null);
+  const [user, setUser] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   React.useEffect(() => {
     fetch('/api/proxy/counts')
@@ -142,6 +158,44 @@ export default function GlobalSidebar() {
           <span className="nav-icon"><HelpIcon /></span>
           <span className="nav-label" style={{ fontSize: '0.8rem' }}>Help center</span>
         </div>
+      </div>
+
+      {/* User Profile */}
+      <div className="user-profile-area" style={{ padding: '1rem', borderTop: '1px solid var(--border)', marginTop: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=6e56cf&color=fff`} alt="Avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {user.user_metadata?.full_name || 'User'}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {user.email}
+              </div>
+            </div>
+            <button 
+              onClick={() => supabase.auth.signOut()} 
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto', padding: '4px' }}
+              title="Sign Out"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               <UsersIcon />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>Not logged in</div>
+              <Link href="/login" style={{ fontSize: '0.65rem', color: 'var(--primary)', textDecoration: 'none' }}>Log in</Link>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

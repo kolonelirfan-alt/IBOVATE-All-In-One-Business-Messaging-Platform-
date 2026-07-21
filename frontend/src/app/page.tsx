@@ -20,7 +20,7 @@ export default function Home() {
         <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
           <Link href="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Privacy</Link>
           <Link href="/terms" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Terms</Link>
-          <Link href="/inbox" style={{ background: 'var(--primary)', color: 'white', padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-full)', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Go to App</Link>
+          <Link href="/login" style={{ background: 'var(--primary)', color: 'white', padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-full)', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Go to App</Link>
         </div>
       </nav>
 
@@ -39,7 +39,7 @@ export default function Home() {
         </p>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <Link href="/inbox" style={{ background: 'var(--primary)', color: 'white', padding: '1rem 2rem', borderRadius: 'var(--radius-full)', textDecoration: 'none', fontWeight: 700, fontSize: '1.1rem', boxShadow: '0 8px 16px rgba(0, 112, 243, 0.2)', transition: 'transform 0.2s' }}>
+          <Link href="/login" style={{ background: 'var(--primary)', color: 'white', padding: '1rem 2rem', borderRadius: 'var(--radius-full)', textDecoration: 'none', fontWeight: 700, fontSize: '1.1rem', boxShadow: '0 8px 16px rgba(0, 112, 243, 0.2)', transition: 'transform 0.2s' }}>
             Start for free
           </Link>
           <Link href="#features" style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '1rem 2rem', borderRadius: 'var(--radius-full)', textDecoration: 'none', fontWeight: 700, fontSize: '1.1rem' }}>
