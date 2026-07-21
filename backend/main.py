@@ -59,7 +59,7 @@ async def handle_whatsapp_webhook(request: Request):
     payload = await request.body()
     verify_meta_signature(request, payload)
     data = await request.json()
-    q.enqueue(worker.process_whatsapp_webhook, data)
+    worker.process_whatsapp_webhook(data)
     return {"status": "ok"}
 
 @app.get("/webhook/instagram")
@@ -77,7 +77,7 @@ async def handle_instagram_webhook(request: Request):
     payload = await request.body()
     verify_meta_signature(request, payload)
     data = await request.json()
-    q.enqueue(worker.process_instagram_webhook, data)
+    worker.process_instagram_webhook(data)
     return {"status": "ok"}
 
 # --- INBOX API (For Frontend) ---
