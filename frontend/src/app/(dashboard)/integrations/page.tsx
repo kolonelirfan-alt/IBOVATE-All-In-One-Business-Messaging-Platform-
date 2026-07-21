@@ -250,7 +250,7 @@ export default function IntegrationsPage() {
           
           // Update the status of integrations based on connected channels
           setIntegrations(prev => prev.map(int => {
-            const isConnected = data.data.some((ch: any) => ch.type === int.id);
+            const isConnected = data.data.some((ch: any) => ch.type === int.id && ch.status === 'active');
             if (isConnected) {
               return { ...int, status: 'connected' };
             }
