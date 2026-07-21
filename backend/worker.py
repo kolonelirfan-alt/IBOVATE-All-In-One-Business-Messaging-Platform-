@@ -166,7 +166,111 @@ def process_whatsapp_webhook(payload: dict):
     except Exception as e:
         logger.error(f"Failed to process WA webhook: {e}")
 
+def _handle_ig_message(message_info: dict):
+    if "message" not in message_info:
+        return
+        
+    sender_id = message_info.get("sender", {}).get("id")
+    recipient_id = message_info.get("recipient", {}).get("id")
+    timestamp = message_info.get("timestamp")
+    message_obj = message_info.get("message", {})
+    
+    meta_message_id = message_obj.get("mid")
+    content = message_obj.get("text", "")
+    
+    if not sender_id or not recipient_id or not meta_message_id:
+        return
+        
+    # Find channel. In IG, the recipient_id is our Page/IG Account ID
+    channel_res = supabase.table("channels").select("*").eq("meta_phone_id", recipient_id).eq("type", "instagram").execute()
+    if not channel_res.data:
+        # It might be an echo (we are the sender)
+        channel_res = supabase.table("channels").select("*").eq("meta_phone_id", sender_id).eq("type", "instagram").execute()
+        if not channel_res.data:
+            logger.warning(f"IG Webhook received for unknown account: {recipient_id}")
+            return
+        else:
+            logger.info("Ignoring IG echo message")
+            return
+            
+    channel = channel_res.data[0]
+    workspace_id = channel["workspace_id"]
+    
+    # Deduplication check
+    existing = supabase.table("messages").select("id").eq("meta_message_id", meta_message_id).execute()
+    if existing.data:
+        logger.info("IG Message already exists, skipping duplicate.")
+        return
+        
+    # 1. Upsert Contact
+    contact_res = supabase.table("contacts").select("*").eq("channel_id", channel["id"]).eq("external_id", sender_id).execute()
+    if not contact_res.data:
+        new_contact = supabase.table("contacts").insert({
+            "workspace_id": workspace_id,
+            "channel_id": channel["id"],
+            "external_id": sender_id,
+            "name": f"IG User {sender_id[-4:]}" # Default name
+        }).execute()
+        contact_id = new_contact.data[0]["id"]
+    else:
+        contact_id = contact_res.data[0]["id"]
+        
+    # 2. Upsert Conversation
+    conv_res = supabase.table("conversations").select("*").eq("contact_id", contact_id).execute()
+    if not conv_res.data:
+        new_conv = supabase.table("conversations").insert({
+            "workspace_id": workspace_id,
+            "contact_id": contact_id,
+            "status": "open"
+        }).execute()
+        conv_id = new_conv.data[0]["id"]
+    else:
+        conv_id = conv_res.data[0]["id"]
+        if conv_res.data[0]["status"] == "resolved":
+            supabase.table("conversations").update({"status": "open"}).eq("id", conv_id).execute()
+            
+    # 3. Insert Message
+    if timestamp:
+        try:
+            # IG timestamp is usually in milliseconds
+            ts_seconds = int(timestamp) / 1000.0 if len(str(timestamp)) > 10 else int(timestamp)
+            sent_at = datetime.fromtimestamp(ts_seconds).isoformat()
+        except:
+            sent_at = datetime.utcnow().isoformat()
+    else:
+        sent_at = datetime.utcnow().isoformat()
+        
+    supabase.table("messages").insert({
+        "conversation_id": conv_id,
+        "direction": "in",
+        "source": "customer",
+        "content": content,
+        "meta_message_id": meta_message_id,
+        "sent_at": sent_at
+    }).execute()
+    
+    # 4. Update Conversation status
+    session_expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+    supabase.table("conversations").update({
+        "last_message_at": sent_at,
+        "session_expires_at": session_expires_at
+    }).eq("id", conv_id).execute()
+    
+    logger.info(f"Processed IG message {meta_message_id} from {sender_id}")
+
 def process_instagram_webhook(payload: dict):
     logger.info("Processing Instagram webhook")
-    # TODO: parsing logic
-    pass
+    try:
+        # Check if it's the Meta "Test" button payload format
+        if "value" in payload and payload.get("field") == "messages":
+            _handle_ig_message(payload["value"])
+            return
+
+        # Standard Instagram webhook format
+        entries = payload.get("entry", [])
+        for entry in entries:
+            messaging_events = entry.get("messaging", [])
+            for message_info in messaging_events:
+                _handle_ig_message(message_info)
+    except Exception as e:
+        logger.error(f"Failed to process IG webhook: {e}")
