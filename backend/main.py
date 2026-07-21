@@ -184,9 +184,9 @@ async def send_message(request: Request):
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
         
-    phone = contact.get('phone')
+    phone = contact.get('external_id')
     if not phone:
-        raise HTTPException(status_code=400, detail="Contact has no phone number")
+        raise HTTPException(status_code=400, detail="Contact has no external_id (phone)")
         
     # Strip any '+' from phone for Meta API
     recipient_phone = phone.replace('+', '')
@@ -254,7 +254,7 @@ async def get_contacts(q: str = None):
     if not ws_id:
         return {"data": []}
     
-    query = supabase_admin.table('contacts').select('id, name, phone, external_id, created_at, channel_id, channels(type)').eq('workspace_id', ws_id)
+    query = supabase_admin.table('contacts').select('id, name, external_id, created_at, channel_id, channels(type)').eq('workspace_id', ws_id)
     if q:
         query = query.ilike('name', f'%{q}%')
     
@@ -267,7 +267,7 @@ async def get_contacts(q: str = None):
         formatted.append({
             'id': c['id'],
             'name': c['name'] or c['external_id'],
-            'phone': c['phone'] or c['external_id'],
+            'phone': c.get('external_id'),
             'channel': channel_type,
             'created_at': c['created_at'],
             'tags': [] # We can fetch tags later if needed
