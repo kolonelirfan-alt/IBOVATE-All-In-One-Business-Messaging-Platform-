@@ -261,7 +261,7 @@ def _handle_ig_message(message_info: dict):
 def process_instagram_webhook(payload: dict):
     logger.info(f"Processing Instagram webhook, payload: {payload}")
     try:
-        # Check if it's the Meta "Test" button payload format
+        # Check if it's the Meta "Test" button payload format at root (rare, but just in case)
         if "value" in payload and payload.get("field") == "messages":
             _handle_ig_message(payload["value"])
             return
@@ -269,8 +269,15 @@ def process_instagram_webhook(payload: dict):
         # Standard Instagram webhook format
         entries = payload.get("entry", [])
         for entry in entries:
+            # 1. Real Instagram messages usually come in "messaging" array
             messaging_events = entry.get("messaging", [])
             for message_info in messaging_events:
                 _handle_ig_message(message_info)
+                
+            # 2. Meta Dashboard "Test" button sends them in "changes" array
+            changes = entry.get("changes", [])
+            for change in changes:
+                if change.get("field") == "messages":
+                    _handle_ig_message(change.get("value", {}))
     except Exception as e:
         logger.error(f"Failed to process IG webhook: {e}")
