@@ -206,7 +206,7 @@ export default function IntegrationsPage() {
     setIsSubmitting(true);
     try {
       const endpoint = connectingId === 'whatsapp' ? '/api/channels/whatsapp/connect' : '/api/channels/instagram/connect';
-      const body = connectingId === 'whatsapp' ? { access_token: accessToken, phone_number_id: phoneId, workspace_id: '00000000-0000-0000-0000-000000000000' } : { access_token: accessToken, ig_account_id: phoneId, workspace_id: '00000000-0000-0000-0000-000000000000' };
+      const body = connectingId === 'whatsapp' ? { access_token: accessToken, phone_number_id: phoneId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' } : { access_token: accessToken, ig_account_id: phoneId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' };
       
       const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
