@@ -169,9 +169,8 @@ export default function IntegrationsPage() {
         console.log('User cancelled login or did not fully authorize.');
       }
     }, {
-      // Requested scopes for Meta Business Messaging
-      config_id: 'YOUR_CONFIG_ID' // For embedded signup
-      // or scope: 'whatsapp_business_management,whatsapp_business_messaging'
+      // Requested scopes for Meta Business Messaging (WhatsApp & Instagram)
+      scope: 'instagram_basic,instagram_manage_messages,pages_show_list,whatsapp_business_management,whatsapp_business_messaging'
     });
   };
 
