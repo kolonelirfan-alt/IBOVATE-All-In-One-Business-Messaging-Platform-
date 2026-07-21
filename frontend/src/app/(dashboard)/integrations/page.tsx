@@ -128,7 +128,7 @@ export default function IntegrationsPage() {
       if (window.FB) {
         // @ts-ignore
         window.FB.init({
-          appId: 'YOUR_META_APP_ID', // TODO: User needs to replace this
+          appId: '1567575554822438',
           cookie: true,
           xfbml: true,
           version: 'v18.0'
