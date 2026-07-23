@@ -138,39 +138,112 @@ export default function IntegrationsPage() {
     document.body.appendChild(script);
   }, []);
 
-  const [accessToken, setAccessToken] = useState('');
-  const [phoneId, setPhoneId] = useState('');
+  // We don't need manual state inputs anymore since we automate
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
 
   const handleConnectClick = (id: string) => {
     setConnectingId(id);
-    setAccessToken('');
-    setPhoneId('');
     setShowConnectModal(true);
+    setLoadingText('');
+  };
+
+  const submitConnection = async (token: string, externalId: string) => {
+    try {
+      setLoadingText('Connecting channel to your workspace...');
+      const endpoint = connectingId === 'whatsapp' ? '/api/channels/whatsapp/connect' : '/api/channels/instagram/connect';
+      const body = connectingId === 'whatsapp' ? { access_token: token, phone_number_id: externalId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' } : { access_token: token, ig_account_id: externalId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' };
+      
+      const res = await fetch(`${getApiUrl()}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      if (res.ok) {
+        setShowConnectModal(false);
+        const channelsRes = await fetch(`${getApiUrl()}/api/channels`);
+        const data = await channelsRes.json();
+        if (data.data) {
+          setChannels(data.data);
+          setIntegrations(prev => prev.map(int => {
+            if (data.data.some((ch: any) => ch.type === int.id)) return { ...int, status: 'connected' as const };
+            return int;
+          }));
+        }
+      } else {
+        alert('Failed to connect channel on backend.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error connecting channel.');
+    } finally {
+      setIsSubmitting(false);
+      setLoadingText('');
+    }
   };
 
   const handleFacebookLogin = () => {
     // @ts-ignore
-    if (!window.FB) {
-      alert("Facebook SDK is still loading or failed to load. Please ensure your App ID is configured.");
-      return;
-    }
+    if (!window.FB) return alert("Facebook SDK is still loading or failed to load. Please ensure your App ID is configured.");
+    
+    setIsSubmitting(true);
+    setLoadingText('Awaiting Facebook Login...');
     
     // @ts-ignore
     window.FB.login((response: any) => {
       if (response.authResponse) {
         const token = response.authResponse.accessToken;
-        // In a real flow, you send this token to the backend to exchange for a permanent token
-        // and fetch the WABA ID. For now, we mock the UI success.
-        setAccessToken(token);
-        // We still need the phone ID, so we might autofill the token but leave phone ID manual for this hybrid demo
-        alert("Facebook Login Successful! Token received. (Backend implementation required for automatic phone ID fetching)");
+        setLoadingText('Fetching Meta Accounts...');
+        
+        if (connectingId === 'instagram') {
+          fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account&access_token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+              const pageWithIg = data.data?.find((p: any) => p.instagram_business_account);
+              if (pageWithIg) {
+                submitConnection(token, pageWithIg.instagram_business_account.id);
+              } else {
+                alert("No Instagram Business Account linked to your Facebook Pages found.");
+                setIsSubmitting(false);
+                setLoadingText('');
+              }
+            }).catch(e => {
+              console.error(e);
+              setIsSubmitting(false);
+              setLoadingText('');
+            });
+        } else if (connectingId === 'whatsapp') {
+          fetch(`https://graph.facebook.com/v18.0/me/businesses?fields=owned_whatsapp_business_accounts{phone_numbers}&access_token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+              let phoneId = null;
+              if (data.data && data.data.length > 0) {
+                 const waba = data.data[0].owned_whatsapp_business_accounts?.data?.[0];
+                 if (waba && waba.phone_numbers?.data?.[0]) {
+                    phoneId = waba.phone_numbers.data[0].id;
+                 }
+              }
+              if (phoneId) {
+                submitConnection(token, phoneId);
+              } else {
+                alert("No WhatsApp Business Phone Number found. Please ensure you have a WABA setup in your Business Manager.");
+                setIsSubmitting(false);
+                setLoadingText('');
+              }
+            }).catch(e => {
+              console.error(e);
+              setIsSubmitting(false);
+              setLoadingText('');
+            });
+        }
       } else {
         console.log('User cancelled login or did not fully authorize.');
+        setIsSubmitting(false);
+        setLoadingText('');
       }
     }, {
-      // Requested scopes for Meta Business Messaging (WhatsApp & Instagram)
-      scope: 'instagram_basic,instagram_manage_messages,pages_show_list,whatsapp_business_management,whatsapp_business_messaging'
+      scope: 'instagram_basic,instagram_manage_messages,pages_show_list,whatsapp_business_management,whatsapp_business_messaging,business_management'
     });
   };
 
@@ -201,43 +274,7 @@ export default function IntegrationsPage() {
     }
   };
 
-  const handleConnectSubmit = async () => {
-    if (!accessToken || !phoneId) return alert('Please fill in both fields.');
-    setIsSubmitting(true);
-    try {
-      const endpoint = connectingId === 'whatsapp' ? '/api/channels/whatsapp/connect' : '/api/channels/instagram/connect';
-      const body = connectingId === 'whatsapp' ? { access_token: accessToken, phone_number_id: phoneId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' } : { access_token: accessToken, ig_account_id: phoneId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' };
-      
-      const res = await fetch(`${getApiUrl()}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      
-      if (res.ok) {
-        setShowConnectModal(false);
-        // Refresh channels
-        const channelsRes = await fetch(`${getApiUrl()}/api/channels`);
-        const data = await channelsRes.json();
-        if (data.data) {
-          setChannels(data.data);
-          setIntegrations(prev => prev.map(int => {
-            if (data.data.some((ch: any) => ch.type === int.id)) {
-              return { ...int, status: 'connected' as const };
-            }
-            return int;
-          }));
-        }
-      } else {
-        alert('Failed to connect channel.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Network error connecting channel.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // handleConnectSubmit removed as it's now submitConnection
 
 
   useEffect(() => {
@@ -429,54 +466,46 @@ export default function IntegrationsPage() {
             </div>
             
             {/* Facebook Login Button */}
-            <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-              <button onClick={handleFacebookLogin} style={{ 
-                background: '#1877F2', 
+            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+              <button onClick={handleFacebookLogin} disabled={isSubmitting} style={{ 
+                background: isSubmitting ? '#a0c3ff' : '#1877F2', 
                 color: 'white', 
                 border: 'none', 
                 padding: '12px 24px', 
                 borderRadius: '8px', 
                 fontWeight: 700, 
                 fontSize: '1rem', 
-                cursor: 'pointer',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
                 width: '100%',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                transition: 'background 0.2s'
               }}>
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                Log in with Facebook
+                {isSubmitting ? (
+                  <svg className="animate-spin" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                    <path d="M12 2a10 10 0 0 1 10 10"></path>
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                )}
+                {isSubmitting ? 'Connecting...' : 'Log in with Facebook'}
               </button>
-              <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Requires your Meta App ID to be configured in <code>page.tsx</code>.
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', margin: '1rem 0' }}>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-              <span style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>OR MANUAL ENTRY</span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-            </div>
-            
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Permanent Access Token</label>
-              <input type="text" value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder="EAAG..." style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-primary)', fontSize: '0.85rem' }} />
-            </div>
-            
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{connectingId === 'whatsapp' ? 'Phone Number ID' : 'IG Account ID'}</label>
-              <input type="text" value={phoneId} onChange={e => setPhoneId(e.target.value)} placeholder="1234567890" style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-primary)', fontSize: '0.85rem' }} />
+              
+              {loadingText && (
+                <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                  {loadingText}
+                </div>
+              )}
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button onClick={() => setShowConnectModal(false)} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
+              <button onClick={() => setShowConnectModal(false)} disabled={isSubmitting} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
                 Cancel
-              </button>
-              <button onClick={handleConnectSubmit} disabled={isSubmitting} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
-                {isSubmitting ? 'Connecting...' : 'Connect Channel'}
               </button>
             </div>
           </div>
