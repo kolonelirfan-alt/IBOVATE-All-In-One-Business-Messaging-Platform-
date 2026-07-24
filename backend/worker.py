@@ -214,10 +214,16 @@ def _handle_ig_message(message_info: dict):
         if access_token:
             import httpx
             try:
+                # Try graph.instagram.com first
                 res = httpx.get(
-                    f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}",
+                    f"https://graph.instagram.com/{sender_id}?fields=name,username&access_token={access_token}",
                     timeout=5.0
                 )
+                if res.status_code != 200:
+                    res = httpx.get(
+                        f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}",
+                        timeout=5.0
+                    )
                 if res.status_code == 200:
                     profile = res.json()
                     name = profile.get("name") or profile.get("username") or name
@@ -239,7 +245,9 @@ def _handle_ig_message(message_info: dict):
             if access_token:
                 import httpx
                 try:
-                    res = httpx.get(f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}", timeout=5.0)
+                    res = httpx.get(f"https://graph.instagram.com/{sender_id}?fields=name,username&access_token={access_token}", timeout=5.0)
+                    if res.status_code != 200:
+                        res = httpx.get(f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}", timeout=5.0)
                     if res.status_code == 200:
                         profile = res.json()
                         fetched_name = profile.get("name") or profile.get("username")

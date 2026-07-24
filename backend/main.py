@@ -521,7 +521,8 @@ async def sync_channel(channel_id: str):
     access_token = channel.get('access_token')
     workspace_id = channel.get('workspace_id')
     
-    if not page_id or not access_token:
+    target_id = ig_account_id or page_id
+    if not target_id or not access_token:
         raise HTTPException(status_code=400, detail="Channel missing credentials")
         
     import httpx
@@ -529,7 +530,7 @@ async def sync_channel(channel_id: str):
         async with httpx.AsyncClient() as client:
             # 1. Fetch conversations
             conv_res = await client.get(
-                f"https://graph.facebook.com/v18.0/{page_id}/conversations",
+                f"https://graph.facebook.com/v18.0/{target_id}/conversations",
                 params={"platform": "instagram", "access_token": access_token, "limit": 20}
             )
             conv_res.raise_for_status()
@@ -558,7 +559,16 @@ async def sync_channel(channel_id: str):
                     sender = msg.get('from', {})
                     if sender.get('id') and sender.get('id') != ig_account_id:
                         customer_id = sender.get('id')
-                        customer_name = sender.get('username') or sender.get('name') or f"IG User {customer_id[-4:]}"
+                        raw_name = sender.get('username') or sender.get('name')
+                        if not raw_name and access_token:
+                            try:
+                                ig_res = await client.get(f"https://graph.instagram.com/{customer_id}?fields=name,username", params={"access_token": access_token}, timeout=5.0)
+                                if ig_res.status_code == 200:
+                                    prof = ig_res.json()
+                                    raw_name = prof.get('name') or prof.get('username')
+                            except Exception:
+                                pass
+                        customer_name = raw_name or f"IG User {customer_id[-4:]}"
                         break
                     
                 if not customer_id:
@@ -704,10 +714,11 @@ async def connect_instagram_channel(request: Request):
         logger.error(f"Failed to subscribe page: {e}")
         # Continue anyway
 
+    token_to_save = page_access_token or access_token
     if existing.data:
         # Update existing
         response = supabase_admin.table("channels").update({
-            "access_token": page_access_token,
+            "access_token": token_to_save,
             "status": "active",
             "meta_phone_id": page_id
         }).eq("id", existing.data[0]["id"]).execute()
@@ -717,7 +728,7 @@ async def connect_instagram_channel(request: Request):
             "workspace_id": workspace_id,
             "type": "instagram",
             "external_account_id": ig_account_id,
-            "access_token": page_access_token,
+            "access_token": token_to_save,
             "meta_phone_id": page_id,
             "status": "active"
         }).execute()
