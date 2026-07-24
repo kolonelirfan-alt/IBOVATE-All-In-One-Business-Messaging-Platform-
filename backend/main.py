@@ -573,31 +573,38 @@ async def connect_instagram_channel(request: Request):
     if not access_token or not workspace_id or not ig_account_id:
         raise HTTPException(status_code=400, detail="Missing required fields")
         
+    # Check if channel exists to prevent duplicates
+    existing = supabase_admin.table("channels").select("id").eq("workspace_id", workspace_id).eq("external_account_id", ig_account_id).eq("type", "instagram").execute()
+    
     import httpx
     try:
         async with httpx.AsyncClient() as client:
-            # Subscribe the Page to the App
-            if page_id and page_access_token:
-                res = await client.post(
-                    f"https://graph.facebook.com/v18.0/{page_id}/subscribed_apps",
-                    params={
-                        "subscribed_fields": "messages,messaging_postbacks",
-                        "access_token": page_access_token
-                    }
-                )
-                if res.status_code != 200:
-                    logger.error(f"Failed to subscribe page: {res.text}")
+            headers = {"Authorization": f"Bearer {page_access_token}"}
+            meta_res = await client.post(
+                f"https://graph.facebook.com/v18.0/{page_id}/subscribed_apps",
+                headers=headers,
+                data={"subscribed_fields": "messages,messaging_postbacks"}
+            )
+            meta_res.raise_for_status()
     except Exception as e:
         logger.error(f"Failed to subscribe page: {e}")
+        # Continue anyway
 
-    response = supabase_admin.table("channels").insert({
-        "workspace_id": workspace_id,
-        "type": "instagram",
-        "external_account_id": ig_account_id,
-        "access_token": access_token,
-        "meta_phone_id": ig_account_id,
-        "status": "active"
-    }).execute()
+    if existing.data:
+        # Update existing
+        response = supabase_admin.table("channels").update({
+            "access_token": access_token
+        }).eq("id", existing.data[0]["id"]).execute()
+    else:
+        # Insert new
+        response = supabase_admin.table("channels").insert({
+            "workspace_id": workspace_id,
+            "type": "instagram",
+            "external_account_id": ig_account_id,
+            "access_token": access_token,
+            "meta_phone_id": ig_account_id,
+            "status": "active"
+        }).execute()
     return {"status": "connected", "data": response.data[0] if response.data else None}
 
 # --- API TOKEN API ---
