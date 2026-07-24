@@ -429,6 +429,41 @@ async def get_agents():
     agents = supabase_admin.table('users').select('id, email, role, created_at').eq('workspace_id', ws_id).execute()
     return {"data": agents.data}
 
+@app.post("/api/workspace/invite")
+async def invite_agent(request: Request):
+    """Invite a new agent to the workspace"""
+    data = await request.json()
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+        
+    ws_id = _get_demo_workspace_id()
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    # Check if user already exists in workspace
+    existing = supabase_admin.table('users').select('id').eq('email', email).eq('workspace_id', ws_id).execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail="User already exists in this workspace")
+        
+    try:
+        # Send invite via Supabase Auth
+        res = supabase_admin.auth.admin.invite_user_by_email(email)
+        user_id = res.user.id
+        
+        # Add to public.users
+        supabase_admin.table('users').upsert({
+            'id': user_id,
+            'workspace_id': ws_id,
+            'email': email,
+            'role': 'agent'
+        }).execute()
+        
+        return {"status": "success", "message": "Invitation sent successfully"}
+    except Exception as e:
+        logger.error(f"Failed to invite user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/channels")
 async def get_channels():
     """Get all connected channels"""
@@ -472,7 +507,7 @@ async def connect_whatsapp_channel(request: Request):
     data = await request.json()
     access_token = data.get("access_token")
     phone_number_id = data.get("phone_number_id")
-    workspace_id = data.get("workspace_id")
+    workspace_id = _get_demo_workspace_id()
     
     if not access_token or not workspace_id or not phone_number_id:
         raise HTTPException(status_code=400, detail="Missing required fields")
@@ -505,7 +540,7 @@ async def connect_instagram_channel(request: Request):
     data = await request.json()
     access_token = data.get("access_token")
     ig_account_id = data.get("ig_account_id")
-    workspace_id = data.get("workspace_id")
+    workspace_id = _get_demo_workspace_id()
     
     if not access_token or not workspace_id or not ig_account_id:
         raise HTTPException(status_code=400, detail="Missing required fields")

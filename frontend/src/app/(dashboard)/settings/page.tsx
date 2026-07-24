@@ -65,15 +65,70 @@ function ComingSoonTab({ title }: { title: string }) {
   );
 }
 
-function AgentsTab({ agents }: { agents: Agent[] }) {
+function AgentsTab({ agents, onInviteSuccess }: { agents: Agent[], onInviteSuccess: () => void }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleInvite = async () => {
+    if (!email.trim()) return;
+    setIsInviting(true);
+    setError('');
+    try {
+      const res = await fetch(`${getApiUrl()}/api/workspace/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to invite agent');
+      setIsModalOpen(false);
+      setEmail('');
+      onInviteSuccess();
+      alert('Undangan berhasil dikirim ke ' + email.trim());
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   return (
     <div>
       <SectionHeader title="Agent Management" description="Manage agents who handle customer conversations." />
       <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-        <button style={{ padding: '8px 18px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}>
+        <button onClick={() => setIsModalOpen(true)} style={{ padding: '8px 18px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}>
           + Invite Agent
         </button>
       </div>
+      
+      {isModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: 'var(--bg-2)', padding: '2rem', borderRadius: 'var(--radius-lg)', width: 400, border: '1px solid var(--border)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '0.5rem' }}>Invite New Agent</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Enter the email address of the agent you want to invite. They will receive an email to join your workspace.</p>
+            
+            <input 
+              type="email" 
+              placeholder="agent@example.com" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={{ width: '100%', padding: '10px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', marginBottom: '1rem', boxSizing: 'border-box' }}
+            />
+            
+            {error && <div style={{ color: 'var(--status-breached-text)', fontSize: '0.8rem', marginBottom: '1rem' }}>{error}</div>}
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button onClick={() => setIsModalOpen(false)} style={{ padding: '8px 16px', background: 'var(--bg-3)', color: 'var(--text-primary)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+              <button onClick={handleInvite} disabled={isInviting || !email} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, opacity: isInviting || !email ? 0.7 : 1 }}>
+                {isInviting ? 'Inviting...' : 'Send Invite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ background: 'var(--bg-2)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -336,16 +391,20 @@ export default function SettingsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
 
+  const fetchAgents = useCallback(() => {
+    fetch(`${getApiUrl()}/api/workspace/agents`).then(r => r.json()).then(d => d.data && setAgents(d.data)).catch(() => {});
+  }, []);
+
   useEffect(() => {
     const api = getApiUrl();
     fetch(`${api}/api/workspace`).then(r => r.json()).then(d => d.data && setWorkspace(d.data)).catch(() => {});
-    fetch(`${api}/api/workspace/agents`).then(r => r.json()).then(d => d.data && setAgents(d.data)).catch(() => {});
+    fetchAgents();
     fetch(`${api}/api/channels`).then(r => r.json()).then(d => d.data && setChannels(d.data)).catch(() => {});
-  }, []);
+  }, [fetchAgents]);
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'agent_management': return <AgentsTab agents={agents} />;
+      case 'agent_management': return <AgentsTab agents={agents} onInviteSuccess={fetchAgents} />;
       case 'user_management': return <ComingSoonTab title="User Management" />;
       case 'sla': return <ComingSoonTab title="SLA Management" />;
       case 'inbox_settings': return <ComingSoonTab title="Inbox Settings" />;
