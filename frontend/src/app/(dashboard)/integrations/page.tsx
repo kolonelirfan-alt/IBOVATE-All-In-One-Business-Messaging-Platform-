@@ -148,11 +148,13 @@ export default function IntegrationsPage() {
     setLoadingText('');
   };
 
-  const submitConnection = async (token: string, externalId: string) => {
+  const submitConnection = async (token: string, externalId: string, pageId?: string, pageToken?: string) => {
     try {
       setLoadingText('Connecting channel to your workspace...');
       const endpoint = connectingId === 'whatsapp' ? '/api/channels/whatsapp/connect' : '/api/channels/instagram/connect';
-      const body = connectingId === 'whatsapp' ? { access_token: token, phone_number_id: externalId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' } : { access_token: token, ig_account_id: externalId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' };
+      const body = connectingId === 'whatsapp' 
+        ? { access_token: token, phone_number_id: externalId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' } 
+        : { access_token: token, ig_account_id: externalId, page_id: pageId, page_access_token: pageToken, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' };
       
       const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
@@ -197,12 +199,12 @@ export default function IntegrationsPage() {
         setLoadingText('Fetching Meta Accounts...');
         
         if (connectingId === 'instagram') {
-          fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account&access_token=${token}`)
+          fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account,access_token&access_token=${token}`)
             .then(res => res.json())
             .then(data => {
               const pageWithIg = data.data?.find((p: any) => p.instagram_business_account);
               if (pageWithIg) {
-                submitConnection(token, pageWithIg.instagram_business_account.id);
+                submitConnection(token, pageWithIg.instagram_business_account.id, pageWithIg.id, pageWithIg.access_token);
               } else {
                 alert("No Instagram Business Account linked to your Facebook Pages found.");
                 setIsSubmitting(false);

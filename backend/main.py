@@ -540,11 +540,30 @@ async def connect_instagram_channel(request: Request):
     data = await request.json()
     access_token = data.get("access_token")
     ig_account_id = data.get("ig_account_id")
+    page_id = data.get("page_id")
+    page_access_token = data.get("page_access_token")
     workspace_id = _get_demo_workspace_id()
     
     if not access_token or not workspace_id or not ig_account_id:
         raise HTTPException(status_code=400, detail="Missing required fields")
         
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            # Subscribe the Page to the App
+            if page_id and page_access_token:
+                res = await client.post(
+                    f"https://graph.facebook.com/v18.0/{page_id}/subscribed_apps",
+                    params={
+                        "subscribed_fields": "messages,messaging_postbacks",
+                        "access_token": page_access_token
+                    }
+                )
+                if res.status_code != 200:
+                    logger.error(f"Failed to subscribe page: {res.text}")
+    except Exception as e:
+        logger.error(f"Failed to subscribe page: {e}")
+
     response = supabase_admin.table("channels").insert({
         "workspace_id": workspace_id,
         "type": "instagram",
