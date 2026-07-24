@@ -83,16 +83,13 @@ async def handle_instagram_webhook(request: Request):
 # --- INBOX API (For Frontend) ---
 
 @app.get("/api/inbox/contacts")
-async def get_contacts(workspace_id: str = None):
+async def get_contacts_inbox(workspace_id: str = None):
     """Get all contacts with their latest conversation for the sidebar"""
-    if not workspace_id or workspace_id == "00000000-0000-0000-0000-000000000000":
-        # Hack for Meta Review Demo: if dummy ID, fetch first workspace using admin
-        ws_res = supabase_admin.table('workspaces').select('id').limit(1).execute()
-        if ws_res.data:
-            workspace_id = ws_res.data[0]['id']
-        else:
-            return {"data": []}
-            
+    # Force use the active demo workspace ID
+    workspace_id = _get_demo_workspace_id()
+    if not workspace_id:
+        return {"data": []}
+        
     # Get contacts
     contacts_res = supabase_admin.table('contacts').select('*, channels(type)').eq('workspace_id', workspace_id).execute()
     contacts = contacts_res.data
