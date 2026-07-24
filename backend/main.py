@@ -505,6 +505,117 @@ async def delete_channel(channel_id: str):
     supabase_admin.table('channels').update({"status": "disconnected"}).eq('id', channel_id).execute()
     return {"status": "success"}
 
+@app.post("/api/channels/{channel_id}/sync")
+async def sync_channel(channel_id: str):
+    """Sync historical conversations for a channel"""
+    channel_res = supabase_admin.table('channels').select('*').eq('id', channel_id).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel = channel_res.data[0]
+    if channel['type'] != 'instagram':
+        raise HTTPException(status_code=400, detail="Only Instagram sync is supported currently")
+        
+    ig_account_id = channel.get('external_account_id')
+    access_token = channel.get('access_token')
+    workspace_id = channel.get('workspace_id')
+    
+    if not ig_account_id or not access_token:
+        raise HTTPException(status_code=400, detail="Channel missing credentials")
+        
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Fetch conversations
+            conv_res = await client.get(
+                f"https://graph.facebook.com/v18.0/{ig_account_id}/conversations",
+                params={"platform": "instagram", "access_token": access_token, "limit": 20}
+            )
+            conv_res.raise_for_status()
+            conversations_data = conv_res.json().get('data', [])
+            
+            synced_count = 0
+            for meta_conv in conversations_data:
+                conv_id = meta_conv['id']
+                
+                # Fetch messages for this conversation
+                msg_res = await client.get(
+                    f"https://graph.facebook.com/v18.0/{conv_id}/messages",
+                    params={"fields": "message,created_time,from,to", "access_token": access_token, "limit": 20}
+                )
+                if msg_res.status_code != 200:
+                    continue
+                    
+                messages_data = msg_res.json().get('data', [])
+                if not messages_data:
+                    continue
+                    
+                # Identify the customer
+                customer_id = None
+                customer_name = "IG User"
+                for msg in messages_data:
+                    sender = msg.get('from', {})
+                    if sender.get('id') and sender.get('id') != ig_account_id:
+                        customer_id = sender.get('id')
+                        customer_name = sender.get('username') or sender.get('name') or f"IG User {customer_id[-4:]}"
+                        break
+                    
+                if not customer_id:
+                    continue # Skip if couldn't identify customer
+                    
+                # 2. Upsert Contact
+                contact_res = supabase_admin.table('contacts').select('*').eq('channel_id', channel_id).eq('external_id', customer_id).execute()
+                if not contact_res.data:
+                    new_contact = supabase_admin.table('contacts').insert({
+                        "workspace_id": workspace_id,
+                        "channel_id": channel_id,
+                        "external_id": customer_id,
+                        "name": customer_name
+                    }).execute()
+                    contact_id = new_contact.data[0]['id']
+                else:
+                    contact_id = contact_res.data[0]['id']
+                    
+                # 3. Upsert Conversation
+                db_conv_res = supabase_admin.table('conversations').select('*').eq('contact_id', contact_id).execute()
+                if not db_conv_res.data:
+                    new_db_conv = supabase_admin.table('conversations').insert({
+                        "workspace_id": workspace_id,
+                        "contact_id": contact_id,
+                        "status": "open",
+                        "last_message_at": messages_data[0].get('created_time')
+                    }).execute()
+                    db_conv_id = new_db_conv.data[0]['id']
+                else:
+                    db_conv_id = db_conv_res.data[0]['id']
+                    
+                # 4. Insert Messages (reverse order to get oldest first)
+                for msg in reversed(messages_data):
+                    msg_id = msg.get('id')
+                    
+                    # Check if exists
+                    exist_msg = supabase_admin.table('messages').select('id').eq('meta_message_id', msg_id).execute()
+                    if exist_msg.data:
+                        continue
+                        
+                    direction = "out" if msg.get('from', {}).get('id') == ig_account_id else "in"
+                    
+                    supabase_admin.table('messages').insert({
+                        "conversation_id": db_conv_id,
+                        "direction": direction,
+                        "source": "sync",
+                        "content": msg.get('message', ''),
+                        "sent_at": msg.get('created_time'),
+                        "meta_message_id": msg_id
+                    }).execute()
+                    
+                synced_count += 1
+                
+        return {"status": "success", "synced_conversations": synced_count}
+    except Exception as e:
+        logger.error(f"Sync failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- DASHBOARD ANALYTICS API ---
 
 @app.get("/api/dashboard/stats")

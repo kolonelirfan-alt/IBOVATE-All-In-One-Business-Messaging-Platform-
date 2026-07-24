@@ -111,6 +111,7 @@ export default function IntegrationsPage() {
   // Connect Modal State
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<string | null>(null);
   
   // Facebook SDK Load
   useEffect(() => {
@@ -276,6 +277,27 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleSync = async (type: string) => {
+    const channel = channels.find((c: any) => c.type === type);
+    if (!channel) return;
+    
+    setIsSyncing(type);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/channels/${channel.id}/sync`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Successfully synced ${data.synced_conversations || 0} recent conversations!`);
+      } else {
+        alert(`Failed to sync: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while syncing.');
+    } finally {
+      setIsSyncing(null);
+    }
+  };
+
   // handleConnectSubmit removed as it's now submitConnection
 
 
@@ -429,9 +451,16 @@ export default function IntegrationsPage() {
                 </div>
                 
                 {int.status === 'connected' ? (
-                  <button onClick={() => handleDisconnect(int.id)} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
-                    Disconnect
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {int.id === 'instagram' && (
+                      <button onClick={() => handleSync(int.id)} disabled={isSyncing === int.id} style={{ padding: '8px 16px', background: 'var(--primary-light)', color: 'var(--primary-hover)', border: '1px solid var(--primary-light)', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: isSyncing === int.id ? 'not-allowed' : 'pointer' }}>
+                        {isSyncing === int.id ? 'Syncing...' : 'Sync Chats'}
+                      </button>
+                    )}
+                    <button onClick={() => handleDisconnect(int.id)} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      Disconnect
+                    </button>
+                  </div>
                 ) : int.status === 'available' ? (
                   <button onClick={() => handleConnectClick(int.id)} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'background 0.2s' }}>
                     Connect
