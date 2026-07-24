@@ -704,7 +704,9 @@ async def connect_instagram_channel(request: Request):
     if existing.data:
         # Update existing
         response = supabase_admin.table("channels").update({
-            "access_token": access_token
+            "access_token": page_access_token,
+            "status": "active",
+            "meta_phone_id": ig_account_id
         }).eq("id", existing.data[0]["id"]).execute()
     else:
         # Insert new
@@ -712,7 +714,7 @@ async def connect_instagram_channel(request: Request):
             "workspace_id": workspace_id,
             "type": "instagram",
             "external_account_id": ig_account_id,
-            "access_token": access_token,
+            "access_token": page_access_token,
             "meta_phone_id": ig_account_id,
             "status": "active"
         }).execute()
