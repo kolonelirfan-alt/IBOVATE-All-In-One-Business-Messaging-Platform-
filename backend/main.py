@@ -210,10 +210,12 @@ async def send_message(request: Request):
         
     channel = channel_res.data[0]
     access_token = channel.get('access_token')
-    meta_phone_id = channel.get('meta_phone_id')
     channel_type = channel.get('type')
     
-    if not access_token or not meta_phone_id:
+    # For Instagram, the endpoint ID is stored in external_account_id, for WhatsApp it's meta_phone_id
+    meta_endpoint_id = channel.get('external_account_id') if channel_type == 'instagram' else channel.get('meta_phone_id')
+    
+    if not access_token or not meta_endpoint_id:
         # Fallback to just saving in DB if it's a simulated channel without token
         pass
     else:
@@ -232,7 +234,7 @@ async def send_message(request: Request):
                         "message": {"text": content}
                     }
                     meta_res = await client.post(
-                        f"https://graph.facebook.com/v18.0/{meta_phone_id}/messages",
+                        f"https://graph.facebook.com/v18.0/{meta_endpoint_id}/messages",
                         headers=headers,
                         json=payload
                     )
@@ -245,7 +247,7 @@ async def send_message(request: Request):
                         "text": {"preview_url": False, "body": content}
                     }
                     meta_res = await client.post(
-                        f"https://graph.facebook.com/v18.0/{meta_phone_id}/messages",
+                        f"https://graph.facebook.com/v18.0/{meta_endpoint_id}/messages",
                         headers=headers,
                         json=payload
                     )
