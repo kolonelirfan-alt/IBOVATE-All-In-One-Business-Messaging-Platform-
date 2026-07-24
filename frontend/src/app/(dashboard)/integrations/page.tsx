@@ -246,7 +246,8 @@ export default function IntegrationsPage() {
         setLoadingText('');
       }
     }, {
-      scope: 'instagram_basic,instagram_manage_messages,pages_show_list,pages_read_engagement,pages_manage_metadata,whatsapp_business_management,whatsapp_business_messaging,business_management'
+      scope: 'instagram_basic,instagram_manage_messages,pages_show_list,pages_read_engagement,pages_manage_metadata,whatsapp_business_management,whatsapp_business_messaging,business_management',
+      auth_type: 'rerequest'
     });
   };
 
