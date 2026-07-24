@@ -517,10 +517,11 @@ async def sync_channel(channel_id: str):
         raise HTTPException(status_code=400, detail="Only Instagram sync is supported currently")
         
     ig_account_id = channel.get('external_account_id')
+    page_id = channel.get('meta_phone_id')
     access_token = channel.get('access_token')
     workspace_id = channel.get('workspace_id')
     
-    if not ig_account_id or not access_token:
+    if not page_id or not access_token:
         raise HTTPException(status_code=400, detail="Channel missing credentials")
         
     import httpx
@@ -528,7 +529,7 @@ async def sync_channel(channel_id: str):
         async with httpx.AsyncClient() as client:
             # 1. Fetch conversations
             conv_res = await client.get(
-                f"https://graph.facebook.com/v18.0/{ig_account_id}/conversations",
+                f"https://graph.facebook.com/v18.0/{page_id}/conversations",
                 params={"platform": "instagram", "access_token": access_token, "limit": 20}
             )
             conv_res.raise_for_status()
@@ -706,7 +707,7 @@ async def connect_instagram_channel(request: Request):
         response = supabase_admin.table("channels").update({
             "access_token": page_access_token,
             "status": "active",
-            "meta_phone_id": ig_account_id
+            "meta_phone_id": page_id
         }).eq("id", existing.data[0]["id"]).execute()
     else:
         # Insert new
@@ -715,7 +716,7 @@ async def connect_instagram_channel(request: Request):
             "type": "instagram",
             "external_account_id": ig_account_id,
             "access_token": page_access_token,
-            "meta_phone_id": ig_account_id,
+            "meta_phone_id": page_id,
             "status": "active"
         }).execute()
     return {"status": "connected", "data": response.data[0] if response.data else None}
