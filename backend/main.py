@@ -576,6 +576,8 @@ async def sync_channel(channel_id: str):
                     contact_id = new_contact.data[0]['id']
                 else:
                     contact_id = contact_res.data[0]['id']
+                    if "IG User" in contact_res.data[0].get("name", "") and customer_name != "IG User":
+                        supabase_admin.table('contacts').update({"name": customer_name}).eq('id', contact_id).execute()
                     
                 # 3. Upsert Conversation
                 db_conv_res = supabase_admin.table('conversations').select('*').eq('contact_id', contact_id).execute()

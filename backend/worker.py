@@ -127,6 +127,9 @@ def process_whatsapp_webhook(payload: dict):
                             contact_id = new_contact.data[0]["id"]
                         else:
                             contact_id = contact_res.data[0]["id"]
+                            # Update name if previously saved as just phone number
+                            if contact_res.data[0].get('name') == from_number and contact_name != from_number:
+                                supabase.table("contacts").update({"name": contact_name}).eq("id", contact_id).execute()
                             
                         # 2. Upsert Conversation
                         conv_res = supabase.table("conversations").select("*").eq("contact_id", contact_id).execute()
@@ -211,9 +214,6 @@ def _handle_ig_message(message_info: dict):
         if access_token:
             import httpx
             try:
-                # Synchronous request since this is likely running in an event loop or background worker
-                # worker.py is imported in FastAPI which is async, but this is a sync function if we use requests
-                # Let's use httpx since it's already there
                 res = httpx.get(
                     f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}",
                     timeout=5.0
@@ -233,6 +233,20 @@ def _handle_ig_message(message_info: dict):
         contact_id = new_contact.data[0]["id"]
     else:
         contact_id = contact_res.data[0]["id"]
+        # Update name if previously saved as IG User
+        if "IG User" in contact_res.data[0].get("name", ""):
+            access_token = channel.get("access_token")
+            if access_token:
+                import httpx
+                try:
+                    res = httpx.get(f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}", timeout=5.0)
+                    if res.status_code == 200:
+                        profile = res.json()
+                        fetched_name = profile.get("name") or profile.get("username")
+                        if fetched_name:
+                            supabase.table("contacts").update({"name": fetched_name}).eq("id", contact_id).execute()
+                except Exception as e:
+                    pass
         
     # 2. Upsert Conversation
     conv_res = supabase.table("conversations").select("*").eq("contact_id", contact_id).execute()
