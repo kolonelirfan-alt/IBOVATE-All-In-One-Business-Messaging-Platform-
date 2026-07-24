@@ -205,11 +205,30 @@ def _handle_ig_message(message_info: dict):
     # 1. Upsert Contact
     contact_res = supabase.table("contacts").select("*").eq("channel_id", channel["id"]).eq("external_id", sender_id).execute()
     if not contact_res.data:
+        # Fetch IG username if possible
+        access_token = channel.get("access_token")
+        name = f"IG User {sender_id[-4:]}"
+        if access_token:
+            import httpx
+            try:
+                # Synchronous request since this is likely running in an event loop or background worker
+                # worker.py is imported in FastAPI which is async, but this is a sync function if we use requests
+                # Let's use httpx since it's already there
+                res = httpx.get(
+                    f"https://graph.facebook.com/v18.0/{sender_id}?fields=name,username&access_token={access_token}",
+                    timeout=5.0
+                )
+                if res.status_code == 200:
+                    profile = res.json()
+                    name = profile.get("name") or profile.get("username") or name
+            except Exception as e:
+                logger.error(f"Failed to fetch IG profile for {sender_id}: {e}")
+
         new_contact = supabase.table("contacts").insert({
             "workspace_id": workspace_id,
             "channel_id": channel["id"],
             "external_id": sender_id,
-            "name": f"IG User {sender_id[-4:]}" # Default name
+            "name": name
         }).execute()
         contact_id = new_contact.data[0]["id"]
     else:

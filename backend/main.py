@@ -83,7 +83,7 @@ async def handle_instagram_webhook(request: Request):
 # --- INBOX API (For Frontend) ---
 
 @app.get("/api/inbox/contacts")
-async def get_contacts_inbox(workspace_id: str = None):
+async def get_contacts_inbox(workspace_id: str = None, filter: str = "all"):
     """Get all contacts with their latest conversation for the sidebar"""
     # Force use the active demo workspace ID
     workspace_id = _get_demo_workspace_id()
@@ -100,6 +100,21 @@ async def get_contacts_inbox(workspace_id: str = None):
         conv_res = supabase_admin.table('conversations').select('*').eq('contact_id', contact['id']).order('last_message_at', desc=True).limit(1).execute()
         conv = conv_res.data[0] if conv_res.data else None
         
+        # Apply filters
+        if conv:
+            status = conv.get('status')
+            assigned_to = conv.get('assigned_to')
+            
+            if filter == "unassigned" and (status != "open" or assigned_to is not None):
+                continue
+            if filter == "assigned" and (status != "open" or assigned_to is None):
+                continue
+            if filter == "resolved" and status != "resolved":
+                continue
+            if filter == "mine" and (status != "open" or assigned_to is None): # Simplification for demo
+                continue
+            # "all" or any other unrecognized filter just lets it pass
+            
         last_msg = None
         if conv:
             msg_res = supabase_admin.table('messages').select('*').eq('conversation_id', conv['id']).order('sent_at', desc=True).limit(1).execute()
@@ -171,8 +186,8 @@ async def send_message(request: Request):
     if not conversation_id or not content:
         raise HTTPException(status_code=400, detail="conversation_id and content are required")
         
-    # 1. Fetch conversation and contact info to get phone number
-    conv_res = supabase.table('conversations').select('*, contacts(*)').eq('id', conversation_id).execute()
+    # 1. Fetch conversation and contact info to get phone number/ID
+    conv_res = supabase_admin.table('conversations').select('*, contacts(*)').eq('id', conversation_id).execute()
     if not conv_res.data:
         raise HTTPException(status_code=404, detail="Conversation not found")
         
@@ -181,21 +196,22 @@ async def send_message(request: Request):
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
         
-    phone = contact.get('external_id')
-    if not phone:
-        raise HTTPException(status_code=400, detail="Contact has no external_id (phone)")
+    external_id = contact.get('external_id')
+    if not external_id:
+        raise HTTPException(status_code=400, detail="Contact has no external_id")
         
-    # Strip any '+' from phone for Meta API
-    recipient_phone = phone.replace('+', '')
+    # Strip any '+' from phone for Meta API (only relevant for WA but safe for IG)
+    recipient_id = external_id.replace('+', '')
     
     # 2. Fetch channel access_token and meta_phone_id
-    channel_res = supabase.table('channels').select('*').eq('id', contact.get('channel_id')).execute()
+    channel_res = supabase_admin.table('channels').select('*').eq('id', contact.get('channel_id')).execute()
     if not channel_res.data:
         raise HTTPException(status_code=404, detail="Channel not found")
         
     channel = channel_res.data[0]
     access_token = channel.get('access_token')
     meta_phone_id = channel.get('meta_phone_id')
+    channel_type = channel.get('type')
     
     if not access_token or not meta_phone_id:
         # Fallback to just saving in DB if it's a simulated channel without token
@@ -209,18 +225,30 @@ async def send_message(request: Request):
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json"
                 }
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "recipient_type": "individual",
-                    "to": recipient_phone,
-                    "type": "text",
-                    "text": {"preview_url": False, "body": content}
-                }
-                meta_res = await client.post(
-                    f"https://graph.facebook.com/v18.0/{meta_phone_id}/messages",
-                    headers=headers,
-                    json=payload
-                )
+                
+                if channel_type == "instagram":
+                    payload = {
+                        "recipient": {"id": recipient_id},
+                        "message": {"text": content}
+                    }
+                    meta_res = await client.post(
+                        f"https://graph.facebook.com/v18.0/{meta_phone_id}/messages",
+                        headers=headers,
+                        json=payload
+                    )
+                else: # Default to whatsapp
+                    payload = {
+                        "messaging_product": "whatsapp",
+                        "recipient_type": "individual",
+                        "to": recipient_id,
+                        "type": "text",
+                        "text": {"preview_url": False, "body": content}
+                    }
+                    meta_res = await client.post(
+                        f"https://graph.facebook.com/v18.0/{meta_phone_id}/messages",
+                        headers=headers,
+                        json=payload
+                    )
                 meta_res.raise_for_status()
         except Exception as e:
             logger.error(f"Failed to send message via Meta API: {e}")
@@ -234,13 +262,12 @@ async def send_message(request: Request):
         "content": content,
         "sent_at": datetime.utcnow().isoformat()
     }
-    
-    res = supabase.table('messages').insert(new_msg).execute()
+    msg_res = supabase_admin.table('messages').insert(new_msg).execute()
     
     # Update conversation last_message_at
     supabase.table('conversations').update({"last_message_at": new_msg["sent_at"]}).eq('id', conversation_id).execute()
     
-    return {"status": "success", "data": res.data[0] if res.data else None}
+    return {"status": "success", "data": msg_res.data[0] if msg_res.data else None}
 
 # --- CONTACTS API ---
 

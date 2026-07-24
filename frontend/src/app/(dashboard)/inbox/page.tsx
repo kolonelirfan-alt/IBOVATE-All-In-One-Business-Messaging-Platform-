@@ -119,6 +119,7 @@ export default function InboxPage() {
             contact={activeContact}
             conversation={activeConversation}
             onResolve={handleResolve}
+            onUpdate={() => fetchContacts()}
           />
           <ProfilePanel contact={activeContact} />
         </>

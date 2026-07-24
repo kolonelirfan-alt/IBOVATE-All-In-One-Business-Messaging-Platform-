@@ -9,17 +9,27 @@ interface ChatAreaProps {
   contact: Contact;
   conversation: Conversation;
   onResolve?: () => void;
+  onUpdate?: () => void;
 }
 
-export default function ChatArea({ contact, conversation, onResolve }: ChatAreaProps) {
+export default function ChatArea({ contact, conversation, onResolve, onUpdate }: ChatAreaProps) {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<Message[]>(conversation.messages || []);
   const [isSending, setIsSending] = useState(false);
+  const [agents, setAgents] = useState<{id: string, email: string}[]>([]);
+  const [showAssign, setShowAssign] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages(conversation.messages || []);
   }, [conversation.id, conversation.messages]);
+
+  useEffect(() => {
+    fetch(`${getApiUrl()}/api/workspace/agents`)
+      .then(r => r.json())
+      .then(d => { if (d.data) setAgents(d.data); })
+      .catch(() => {});
+  }, []);
 
   // Supabase Realtime
   useEffect(() => {
@@ -74,6 +84,20 @@ export default function ChatArea({ contact, conversation, onResolve }: ChatAreaP
     }
   };
 
+  const handleAssign = async (agentId: string) => {
+    setShowAssign(false);
+    try {
+      await fetch(`${getApiUrl()}/api/inbox/conversations/${conversation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: agentId })
+      });
+      onUpdate?.();
+    } catch (err) {
+      console.error('Assign failed:', err);
+    }
+  };
+
   return (
     <div className="chat-area">
       {/* Header */}
@@ -95,8 +119,40 @@ export default function ChatArea({ contact, conversation, onResolve }: ChatAreaP
           </div>
         </div>
 
-        <div className="chat-header-actions">
-          <button className="action-btn secondary">Assign</button>
+        <div className="chat-header-actions" style={{ position: 'relative' }}>
+          <button className="action-btn secondary" onClick={() => setShowAssign(!showAssign)}>
+            {conversation.assigned_to ? 'Reassign' : 'Assign'}
+          </button>
+          
+          {showAssign && (
+            <div style={{
+              position: 'absolute', top: '100%', right: '100px', marginTop: 4,
+              background: 'var(--bg-surface)', border: '1px solid var(--border-color)',
+              borderRadius: 6, zIndex: 10, minWidth: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                Assign to Agent
+              </div>
+              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                {agents.length === 0 ? (
+                  <div style={{ padding: '8px 12px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>No agents found</div>
+                ) : (
+                  agents.map(a => (
+                    <div 
+                      key={a.id}
+                      onClick={() => handleAssign(a.id)}
+                      style={{ padding: '8px 12px', fontSize: '0.9rem', cursor: 'pointer' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      {a.email} {conversation.assigned_to === a.id && '✓'}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           <button className="action-btn primary" onClick={handleResolve}>✓ Resolve</button>
         </div>
       </div>
