@@ -166,7 +166,9 @@ export default function IntegrationsPage() {
         body: JSON.stringify(body)
       });
       
-      if (res.ok) {
+      const resJson = await res.json().catch(() => ({}));
+
+      if (res.ok && resJson.status === 'connected') {
         setShowConnectModal(false);
         const channelsRes = await fetch(`${getApiUrl()}/api/channels`, {
           headers: { 'X-User-Email': userEmail }
@@ -180,11 +182,11 @@ export default function IntegrationsPage() {
           }));
         }
       } else {
-        alert('Failed to connect channel on backend.');
+        alert(resJson.detail || 'Failed to connect channel on backend. Please check your credentials.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Network error connecting channel.');
+      alert(`Connection failed: ${err?.message || err}`);
     } finally {
       setIsSubmitting(false);
       setLoadingText('');
@@ -222,28 +224,50 @@ export default function IntegrationsPage() {
               setLoadingText('');
             });
         } else if (connectingId === 'whatsapp') {
-          fetch(`https://graph.facebook.com/v18.0/me/businesses?fields=owned_whatsapp_business_accounts{phone_numbers}&access_token=${token}`)
-            .then(res => res.json())
-            .then(data => {
-              let phoneId = null;
-              if (data.data && data.data.length > 0) {
-                 const waba = data.data[0].owned_whatsapp_business_accounts?.data?.[0];
-                 if (waba && waba.phone_numbers?.data?.[0]) {
-                    phoneId = waba.phone_numbers.data[0].id;
-                 }
+          Promise.all([
+            fetch(`https://graph.facebook.com/v18.0/me/client_whatsapp_business_accounts?fields=id,name,phone_numbers&access_token=${token}`).then(r => r.json()).catch(() => ({})),
+            fetch(`https://graph.facebook.com/v18.0/me/businesses?fields=owned_whatsapp_business_accounts{phone_numbers}&access_token=${token}`).then(r => r.json()).catch(() => ({}))
+          ]).then(([clientWaba, ownedWaba]) => {
+            let phoneId = null;
+
+            if (clientWaba.data && clientWaba.data.length > 0) {
+              for (const waba of clientWaba.data) {
+                if (waba.phone_numbers?.data?.length > 0) {
+                  phoneId = waba.phone_numbers.data[0].id;
+                  break;
+                }
               }
-              if (phoneId) {
-                submitConnection(token, phoneId);
+            }
+
+            if (!phoneId && ownedWaba.data && ownedWaba.data.length > 0) {
+              for (const biz of ownedWaba.data) {
+                const wabaList = biz.owned_whatsapp_business_accounts?.data || [];
+                for (const waba of wabaList) {
+                  if (waba.phone_numbers?.data?.length > 0) {
+                    phoneId = waba.phone_numbers.data[0].id;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (phoneId) {
+              submitConnection(token, phoneId);
+            } else {
+              const manualId = prompt("Auto-detection did not find a WhatsApp Phone Number ID linked directly to your Facebook user.\n\nPlease enter your WhatsApp Phone Number ID (from Meta Developer Portal):");
+              if (manualId && manualId.trim()) {
+                submitConnection(token, manualId.trim());
               } else {
-                alert("No WhatsApp Business Phone Number found. Please ensure you have a WABA setup in your Business Manager.");
                 setIsSubmitting(false);
                 setLoadingText('');
               }
-            }).catch(e => {
-              console.error(e);
-              setIsSubmitting(false);
-              setLoadingText('');
-            });
+            }
+          }).catch(e => {
+            console.error(e);
+            alert("Error fetching WhatsApp account info: " + e.message);
+            setIsSubmitting(false);
+            setLoadingText('');
+          });
         }
       } else {
         console.log('User cancelled login or did not fully authorize.');

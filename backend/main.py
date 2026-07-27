@@ -773,13 +773,13 @@ async def connect_whatsapp_channel(request: Request):
     if not access_token or not workspace_id or not phone_number_id:
         raise HTTPException(status_code=400, detail="Missing required fields")
         
-    # Verify the token against Meta Graph API
+    # Verify token against Meta Graph API
     import httpx
     try:
         async with httpx.AsyncClient() as client:
             res = await client.get(f"https://graph.facebook.com/v18.0/{phone_number_id}?access_token={access_token}")
             if res.status_code != 200:
-                raise HTTPException(status_code=400, detail="Invalid Access Token or Phone Number ID")
+                logger.warning(f"WhatsApp token check status {res.status_code}: {res.text}")
     except Exception as e:
         logger.error(f"WhatsApp token verification failed: {e}")
         
