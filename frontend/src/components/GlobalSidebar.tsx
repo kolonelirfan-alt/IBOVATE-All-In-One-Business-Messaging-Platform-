@@ -10,6 +10,7 @@ interface NavItem {
   name: string;
   path: string;
   icon: React.ReactNode;
+  badgeKey?: string | null;
   badge?: number | string;
   badgeType?: 'count' | 'new';
 }
@@ -74,12 +75,12 @@ const HelpIcon = () => (
   </svg>
 );
 
-const BASE_NAV_ITEMS = [
-  { name: 'Dashboard', path: '/dashboard', icon: <GridIcon />, badgeKey: null, badgeType: 'count' as const },
-  { name: 'Inbox', path: '/inbox', icon: <ChatIcon />, badgeKey: 'all' as const, badgeType: 'count' as const },
-  { name: 'Contacts', path: '/contacts', icon: <UsersIcon />, badgeKey: null, badgeType: 'count' as const },
-  { name: 'Integrations', path: '/integrations', icon: <LinkIcon />, badgeKey: null, badgeType: 'count' as const },
-  { name: 'Settings', path: '/settings', icon: <SettingsIcon />, badgeKey: null, badgeType: 'count' as const },
+const BASE_NAV_ITEMS: NavItem[] = [
+  { name: 'Dashboard', path: '/dashboard', icon: <GridIcon />, badgeKey: null, badgeType: 'count' },
+  { name: 'Inbox', path: '/inbox', icon: <ChatIcon />, badgeKey: 'all', badgeType: 'count' },
+  { name: 'Contacts', path: '/contacts', icon: <UsersIcon />, badgeKey: null, badgeType: 'count' },
+  { name: 'Integrations', path: '/integrations', icon: <LinkIcon />, badgeKey: null, badgeType: 'count' },
+  { name: 'Settings', path: '/settings', icon: <SettingsIcon />, badgeKey: null, badgeType: 'count' },
 ];
 
 export default function GlobalSidebar() {
