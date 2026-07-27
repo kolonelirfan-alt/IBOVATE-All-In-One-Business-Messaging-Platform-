@@ -58,12 +58,23 @@ export default function ChatArea({ contact, conversation, onResolve, onUpdate }:
     setInputText('');
     setIsSending(true);
 
+    const tempMsg: Message = {
+      id: 'temp-' + Date.now(),
+      conversation_id: conversation.id,
+      direction: 'out',
+      source: 'dashboard',
+      content,
+      sent_at: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, tempMsg]);
+
     try {
       await fetch(`${getApiUrl()}/api/inbox/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conversation_id: conversation.id, content })
       });
+      if (onUpdate) onUpdate();
     } catch (err) {
       console.error('Send failed:', err);
     } finally {

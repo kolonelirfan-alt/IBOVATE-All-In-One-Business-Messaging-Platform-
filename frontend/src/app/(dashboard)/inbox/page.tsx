@@ -9,6 +9,8 @@ import EmptyState from '@/components/EmptyState';
 import { Contact, Conversation } from '@/types';
 import { DEMO_WORKSPACE_ID, getApiUrl } from '@/lib/api';
 
+import { supabase } from '@/lib/supabase';
+
 const FILTER_LABELS: Record<string, string> = {
   all: 'All chats',
   mine: 'My chats',
@@ -26,15 +28,15 @@ export default function InboxPage() {
   const [counts, setCounts] = useState({ all: 0, unassigned: 0, assigned: 0, resolved: 0 });
 
   // Fetch contacts (with filter)
-  const fetchContacts = useCallback(async () => {
-    setIsLoading(true);
+  const fetchContacts = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const url = `${getApiUrl()}/api/inbox/contacts?workspace_id=${DEMO_WORKSPACE_ID}${activeFilter !== 'all' ? `&filter=${activeFilter}` : ''}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.data) {
         setContacts(data.data);
-        // Auto-select first
+        // Auto-select first if none selected
         if (data.data.length > 0 && !activeContactId) {
           setActiveContactId(data.data[0].id);
         }
@@ -42,12 +44,34 @@ export default function InboxPage() {
     } catch (err) {
       console.error('Failed to fetch contacts', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  }, [activeFilter]);
+  }, [activeFilter, activeContactId]);
 
   useEffect(() => {
-    fetchContacts();
+    fetchContacts(false);
+  }, [activeFilter]);
+
+  // Realtime subscription + 3-second polling fallback
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:messages_inbox')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        fetchContacts(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
+        fetchContacts(true);
+      })
+      .subscribe();
+
+    const interval = setInterval(() => {
+      fetchContacts(true);
+    }, 3000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
   }, [fetchContacts]);
 
   // Fetch badge counts
@@ -58,7 +82,7 @@ export default function InboxPage() {
         if (data) setCounts(data);
       })
       .catch(() => {});
-  }, [activeFilter]);
+  }, [activeFilter, contacts]);
 
   // Fetch messages when contact changes
   useEffect(() => {
@@ -119,7 +143,7 @@ export default function InboxPage() {
             contact={activeContact}
             conversation={activeConversation}
             onResolve={handleResolve}
-            onUpdate={() => fetchContacts()}
+            onUpdate={() => fetchContacts(true)}
           />
           <ProfilePanel contact={activeContact} />
         </>

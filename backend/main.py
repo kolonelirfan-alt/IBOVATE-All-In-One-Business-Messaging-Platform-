@@ -170,21 +170,39 @@ async def get_contacts_inbox(workspace_id: str = None, filter: str = "all"):
 
 @app.get("/api/inbox/counts")
 async def get_counts(workspace_id: str = None):
-    """Get badge counts per filter category"""
-    if not workspace_id or workspace_id == "00000000-0000-0000-0000-000000000000":
-        ws_res = supabase_admin.table('workspaces').select('id').limit(1).execute()
-        if ws_res.data:
-            workspace_id = ws_res.data[0]['id']
-        else:
-            return {"all": 0, "unassigned": 0, "assigned": 0, "resolved": 0}
+    """Get unread badge counts per filter category"""
+    workspace_id = _get_demo_workspace_id()
+    if not workspace_id:
+        return {"all": 0, "unassigned": 0, "assigned": 0, "resolved": 0}
 
-    all_convs = supabase_admin.table('conversations').select('id, status, assigned_to').eq('workspace_id', workspace_id).execute().data
+    convs = supabase_admin.table('conversations').select('id, status, assigned_to, messages(*)').eq('workspace_id', workspace_id).execute().data or []
     
+    unread_all = 0
+    unread_unassigned = 0
+    unread_assigned = 0
+    resolved_count = 0
+
+    for c in convs:
+        status = c.get('status')
+        if status == 'resolved':
+            resolved_count += 1
+            continue
+            
+        msgs = sorted(c.get('messages', []), key=lambda x: x.get('sent_at') or '', reverse=True)
+        is_unread = msgs and msgs[0].get('direction') == 'in'
+        
+        if is_unread:
+            unread_all += 1
+            if not c.get('assigned_to'):
+                unread_unassigned += 1
+            else:
+                unread_assigned += 1
+
     return {
-        "all": len([c for c in all_convs if c.get('status') != 'resolved']),
-        "unassigned": len([c for c in all_convs if not c.get('assigned_to') and c.get('status') != 'resolved']),
-        "assigned": len([c for c in all_convs if c.get('assigned_to') and c.get('status') != 'resolved']),
-        "resolved": len([c for c in all_convs if c.get('status') == 'resolved']),
+        "all": unread_all,
+        "unassigned": unread_unassigned,
+        "assigned": unread_assigned,
+        "resolved": resolved_count,
     }
 
 @app.patch("/api/inbox/conversations/{conversation_id}")

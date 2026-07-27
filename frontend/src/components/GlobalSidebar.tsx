@@ -174,7 +174,11 @@ export default function GlobalSidebar() {
               </div>
             </div>
             <button 
-              onClick={() => supabase.auth.signOut()} 
+              onClick={() => {
+                supabase.auth.signOut().then(() => {
+                  window.location.href = '/login';
+                });
+              }} 
               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto', padding: '4px' }}
               title="Sign Out"
             >
