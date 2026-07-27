@@ -84,24 +84,6 @@ const integrationsData: IntegrationDef[] = [
     category: 'messaging',
     status: 'coming_soon',
     tags: ['Messaging']
-  },
-  {
-    id: 'openai',
-    name: 'AI Auto-Responder',
-    description: 'Deploy AI agents trained on your business data to handle routine inquiries.',
-    icon: <AIWorkspaceIcon />,
-    category: 'ai',
-    status: 'coming_soon',
-    tags: ['AI']
-  },
-  {
-    id: 'stripe',
-    name: 'Stripe Payments',
-    description: 'Accept payments and send invoices directly inside customer chat windows.',
-    icon: <StripeIcon />,
-    category: 'payments',
-    status: 'coming_soon',
-    tags: ['Payments']
   }
 ];
 

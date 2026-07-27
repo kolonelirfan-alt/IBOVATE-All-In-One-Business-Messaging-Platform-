@@ -98,40 +98,36 @@ export default function DashboardPage() {
               <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading...</div>
             ) : channels.length === 0 ? (
               <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No channels connected.</div>
-            ) : channels.map(ch => (
-              <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: channelColor(ch.type), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', color: 'white', fontWeight: 700 }}>
-                  {channelIcon(ch.type)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>{ch.type}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{ch.external_account_id}</div>
-                </div>
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                  background: ch.status === 'active' ? 'var(--status-new-bg)' : 'var(--bg-3)',
-                  color: ch.status === 'active' ? 'var(--status-new-text)' : 'var(--text-muted)' }}>
-                  {ch.status}
-                </span>
-              </div>
-            ))}
-          </div>
+            ) : (() => {
+              const uniqueChannels = channels.reduce<Channel[]>((acc, current) => {
+                const isDuplicate = acc.some(ch => ch.type === current.type && (ch.external_account_id === current.external_account_id || ch.id === current.id));
+                if (!isDuplicate) acc.push(current);
+                return acc;
+              }, []);
+              return uniqueChannels.map(ch => {
+                const isIg = ch.type === 'instagram';
+                const subLabel = isIg 
+                  ? ((ch as any).name || (ch as any).account_name ? `@${(ch as any).name || (ch as any).account_name}` : '@instagram_account')
+                  : ((ch as any).phone_number ? (ch as any).phone_number : (ch.external_account_id?.startsWith('+') ? ch.external_account_id : `+${ch.external_account_id}`));
 
-          {/* Quick Actions */}
-          <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.25rem' }}>
-            <h2 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1rem' }}>Quick Actions</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { label: '💬 Go to Inbox', href: '/inbox' },
-                { label: '👥 View Contacts', href: '/contacts' },
-                { label: '⚙️ Manage Settings', href: '/settings' },
-              ].map(a => (
-                <a key={a.href} href={a.href} style={{ display: 'block', padding: '10px 14px', background: 'var(--bg-3)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500, transition: 'background 0.15s' }}
-                  onMouseOver={e => (e.currentTarget.style.background = 'var(--bg-4)')}
-                  onMouseOut={e => (e.currentTarget.style.background = 'var(--bg-3)')}>
-                  {a.label}
-                </a>
-              ))}
-            </div>
+                return (
+                  <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: channelColor(ch.type), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', color: 'white', fontWeight: 700 }}>
+                      {channelIcon(ch.type)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>{ch.type}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{subLabel}</div>
+                    </div>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-full)',
+                      background: ch.status === 'active' ? 'var(--status-new-bg)' : 'var(--bg-3)',
+                      color: ch.status === 'active' ? 'var(--status-new-text)' : 'var(--text-muted)' }}>
+                      {ch.status}
+                    </span>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       </div>

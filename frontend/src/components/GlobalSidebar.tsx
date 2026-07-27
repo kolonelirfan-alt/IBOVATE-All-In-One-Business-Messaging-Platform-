@@ -87,6 +87,22 @@ export default function GlobalSidebar() {
   const pathname = usePathname();
   const [inboxCount, setInboxCount] = React.useState<number | null>(null);
   const [user, setUser] = React.useState<any>(null);
+  const [isCollapsed, setIsCollapsed] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    if (saved !== null) {
+      setIsCollapsed(saved === 'true');
+    }
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -118,9 +134,9 @@ export default function GlobalSidebar() {
   }, [user]);
 
   return (
-    <nav className="global-sidebar">
+    <nav className={`global-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       {/* Logo */}
-      <div className="logo-area">
+      <div className="logo-area" style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between' }}>
         <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 32, height: 32, borderRadius: 8,
@@ -132,11 +148,28 @@ export default function GlobalSidebar() {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>IBOVATE</div>
-            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 500 }}>OmniCRM</div>
-          </div>
+          {!isCollapsed && (
+            <div className="logo-text">
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>IBOVATE</div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 500 }}>OmniCRM</div>
+            </div>
+          )}
         </Link>
+
+        <button 
+          onClick={toggleCollapse}
+          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          style={{
+            background: 'transparent', border: 'none', color: 'var(--text-muted)',
+            cursor: 'pointer', padding: '4px', borderRadius: 4, display: 'flex', alignItems: 'center'
+          }}
+          onMouseOver={e => e.currentTarget.style.color = 'var(--text-primary)'}
+          onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
       </div>
 
       {/* Nav Items */}
@@ -145,7 +178,7 @@ export default function GlobalSidebar() {
           const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
           const liveBadge = item.badgeKey === 'all' ? inboxCount : (item as any).badge;
           return (
-            <Link key={item.path} href={item.path} className={`nav-item ${isActive ? 'active' : ''}`}>
+            <Link key={item.path} href={item.path} className={`nav-item ${isActive ? 'active' : ''}`} title={item.name}>
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{item.name}</span>
               {liveBadge != null && liveBadge !== 0 && (
@@ -160,7 +193,7 @@ export default function GlobalSidebar() {
 
       {/* Help Center */}
       <div className="help-area">
-        <div className="nav-item" style={{ padding: '8px 0', border: 'none' }}>
+        <div className="nav-item" style={{ padding: '8px 0', border: 'none' }} title="Help center">
           <span className="nav-icon"><HelpIcon /></span>
           <span className="nav-label" style={{ fontSize: '0.8rem' }}>Help center</span>
         </div>
@@ -170,8 +203,8 @@ export default function GlobalSidebar() {
       <div className="user-profile-area" style={{ padding: '1rem', borderTop: '1px solid var(--border)', marginTop: 'auto', display: 'flex', flexDirection: 'column' }}>
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=6e56cf&color=fff`} alt="Avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
-            <div style={{ overflow: 'hidden' }}>
+            <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=6e56cf&color=fff`} alt="Avatar" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+            <div className="user-info-text" style={{ overflow: 'hidden' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                 {user.user_metadata?.full_name || 'User'}
               </div>
@@ -179,28 +212,30 @@ export default function GlobalSidebar() {
                 {user.email}
               </div>
             </div>
-            <button 
-              onClick={() => {
-                supabase.auth.signOut().then(() => {
-                  window.location.href = '/login';
-                });
-              }} 
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto', padding: '4px' }}
-              title="Sign Out"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-            </button>
+            {!isCollapsed && (
+              <button 
+                onClick={() => {
+                  supabase.auth.signOut().then(() => {
+                    window.location.href = '/login';
+                  });
+                }} 
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto', padding: '4px' }}
+                title="Sign Out"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                <UsersIcon />
             </div>
-            <div>
+            <div className="user-info-text">
               <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>Not logged in</div>
               <Link href="/login" style={{ fontSize: '0.65rem', color: 'var(--primary)', textDecoration: 'none' }}>Log in</Link>
             </div>

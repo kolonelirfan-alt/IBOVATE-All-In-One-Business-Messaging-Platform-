@@ -10,9 +10,11 @@ interface ChatAreaProps {
   conversation: Conversation;
   onResolve?: () => void;
   onUpdate?: () => void;
+  onToggleProfile?: () => void;
+  showProfile?: boolean;
 }
 
-export default function ChatArea({ contact, conversation, onResolve, onUpdate }: ChatAreaProps) {
+export default function ChatArea({ contact, conversation, onResolve, onUpdate, onToggleProfile, showProfile }: ChatAreaProps) {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<Message[]>(conversation.messages || []);
   const [isSending, setIsSending] = useState(false);
@@ -113,24 +115,32 @@ export default function ChatArea({ contact, conversation, onResolve, onUpdate }:
     <div className="chat-area">
       {/* Header */}
       <div className="chat-header">
-        <div className="chat-header-left">
+        <div 
+          className="chat-header-left" 
+          onClick={onToggleProfile}
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+          title="Click to toggle contact profile & details"
+        >
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
             background: 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: '0.9rem', color: 'white'
+            fontWeight: 700, fontSize: '0.9rem', color: 'white', flexShrink: 0
           }}>
             {contact.name.charAt(0)}
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{contact.name}</div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {contact.name}
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ℹ️</span>
+            </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               {contact.channel === 'whatsapp' ? '🟢 WhatsApp Business' : '📷 Instagram Direct'}
             </div>
           </div>
         </div>
 
-        <div className="chat-header-actions" style={{ position: 'relative' }}>
+        <div className="chat-header-actions" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
           <button className="action-btn secondary" onClick={() => setShowAssign(!showAssign)}>
             {conversation.assigned_to ? 'Reassign' : 'Assign'}
           </button>
@@ -165,6 +175,26 @@ export default function ChatArea({ contact, conversation, onResolve, onUpdate }:
           )}
 
           <button className="action-btn primary" onClick={handleResolve}>✓ Resolve</button>
+          
+          <button 
+            onClick={onToggleProfile}
+            title={showProfile ? "Hide Profile" : "View Contact Details"}
+            style={{
+              background: showProfile ? 'var(--primary-light)' : 'var(--bg-3)',
+              color: showProfile ? 'var(--primary-hover)' : 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+          >
+            👤 {showProfile ? 'Hide Details' : 'Details'}
+          </button>
         </div>
       </div>
 

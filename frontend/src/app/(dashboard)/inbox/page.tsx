@@ -26,6 +26,7 @@ export default function InboxPage() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [counts, setCounts] = useState({ all: 0, unassigned: 0, assigned: 0, resolved: 0 });
+  const [showProfile, setShowProfile] = useState(false);
 
   // Fetch contacts (with filter)
   const fetchContacts = useCallback(async (silent = false) => {
@@ -153,8 +154,10 @@ export default function InboxPage() {
             conversation={activeConversation}
             onResolve={handleResolve}
             onUpdate={() => fetchContacts(true)}
+            onToggleProfile={() => setShowProfile(prev => !prev)}
+            showProfile={showProfile}
           />
-          <ProfilePanel contact={activeContact} />
+          {showProfile && <ProfilePanel contact={activeContact} />}
         </>
       ) : (
         <EmptyState />
