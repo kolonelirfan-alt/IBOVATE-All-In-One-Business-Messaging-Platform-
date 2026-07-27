@@ -528,11 +528,26 @@ async def sync_channel(channel_id: str):
     import httpx
     try:
         async with httpx.AsyncClient() as client:
-            # 1. Fetch conversations
-            conv_res = await client.get(
-                f"https://graph.facebook.com/v18.0/{target_id}/conversations",
-                params={"platform": "instagram", "access_token": access_token, "limit": 20}
-            )
+            # 1. Fetch conversations (Support both Instagram Graph API & Facebook Graph API tokens)
+            if access_token.startswith("IG"):
+                api_domain = "https://graph.instagram.com"
+                conv_res = await client.get(
+                    f"{api_domain}/me/conversations",
+                    params={"access_token": access_token, "limit": 20}
+                )
+            else:
+                api_domain = "https://graph.facebook.com/v18.0"
+                conv_res = await client.get(
+                    f"{api_domain}/{target_id}/conversations",
+                    params={"platform": "instagram", "access_token": access_token, "limit": 20}
+                )
+                if conv_res.status_code == 400:
+                    api_domain = "https://graph.instagram.com"
+                    conv_res = await client.get(
+                        f"{api_domain}/me/conversations",
+                        params={"access_token": access_token, "limit": 20}
+                    )
+
             conv_res.raise_for_status()
             conversations_data = conv_res.json().get('data', [])
             
@@ -542,7 +557,7 @@ async def sync_channel(channel_id: str):
                 
                 # Fetch messages for this conversation
                 msg_res = await client.get(
-                    f"https://graph.facebook.com/v18.0/{conv_id}/messages",
+                    f"{api_domain}/{conv_id}/messages",
                     params={"fields": "message,created_time,from,to", "access_token": access_token, "limit": 20}
                 )
                 if msg_res.status_code != 200:
