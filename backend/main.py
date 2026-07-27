@@ -770,18 +770,37 @@ async def connect_whatsapp_channel(request: Request):
     user_email = data.get("user_email") or request.headers.get("X-User-Email")
     workspace_id = _get_demo_workspace_id(user_email=user_email)
     
-    if not access_token or not workspace_id or not phone_number_id:
-        raise HTTPException(status_code=400, detail="Missing required fields")
-        
-    # Verify token against Meta Graph API
+    if not access_token or not workspace_id:
+        raise HTTPException(status_code=400, detail="Access token is required")
+
     import httpx
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(f"https://graph.facebook.com/v18.0/{phone_number_id}?access_token={access_token}")
-            if res.status_code != 200:
-                logger.warning(f"WhatsApp token check status {res.status_code}: {res.text}")
-    except Exception as e:
-        logger.error(f"WhatsApp token verification failed: {e}")
+    # If phone_number_id missing, auto-discover WABA phone_number_id on server side
+    if not phone_number_id:
+        try:
+            async with httpx.AsyncClient() as client:
+                res1 = await client.get(f"https://graph.facebook.com/v18.0/me/client_whatsapp_business_accounts?fields=id,name,phone_numbers&access_token={access_token}")
+                if res1.status_code == 200:
+                    for waba in res1.json().get('data', []):
+                        pn_list = waba.get('phone_numbers', {}).get('data', [])
+                        if pn_list:
+                            phone_number_id = pn_list[0]['id']
+                            break
+
+                if not phone_number_id:
+                    res2 = await client.get(f"https://graph.facebook.com/v18.0/me/businesses?fields=owned_whatsapp_business_accounts{{phone_numbers}}&access_token={access_token}")
+                    if res2.status_code == 200:
+                        for biz in res2.json().get('data', []):
+                            waba_list = biz.get('owned_whatsapp_business_accounts', {}).get('data', [])
+                            for waba in waba_list:
+                                pn_list = waba.get('phone_numbers', {}).get('data', [])
+                                if pn_list:
+                                    phone_number_id = pn_list[0]['id']
+                                    break
+        except Exception as e:
+            logger.error(f"Server auto-discovery for WhatsApp failed: {e}")
+
+    if not phone_number_id:
+        raise HTTPException(status_code=400, detail="No WhatsApp Business Phone Number found linked to your Facebook Account. Please ensure you have a WhatsApp Business Account in Meta Business Manager.")
         
     existing = supabase_admin.table("channels").select("id").eq("workspace_id", workspace_id).eq("meta_phone_id", phone_number_id).eq("type", "whatsapp").execute()
     if existing.data:
@@ -793,6 +812,7 @@ async def connect_whatsapp_channel(request: Request):
         response = supabase_admin.table("channels").insert({
             "workspace_id": workspace_id,
             "type": "whatsapp",
+            "external_account_id": phone_number_id,
             "meta_phone_id": phone_number_id,
             "access_token": access_token,
             "status": "active"
@@ -810,36 +830,51 @@ async def connect_instagram_channel(request: Request):
     user_email = data.get("user_email") or request.headers.get("X-User-Email")
     workspace_id = _get_demo_workspace_id(user_email=user_email)
     
-    if not access_token or not workspace_id or not ig_account_id:
-        raise HTTPException(status_code=400, detail="Missing required fields")
-        
-    # Check if channel exists to prevent duplicates
-    existing = supabase_admin.table("channels").select("id").eq("workspace_id", workspace_id).eq("external_account_id", ig_account_id).eq("type", "instagram").execute()
-    
+    if not access_token or not workspace_id:
+        raise HTTPException(status_code=400, detail="Access token is required")
+
     import httpx
-    try:
-        async with httpx.AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {page_access_token}"}
-            meta_res = await client.post(
-                f"https://graph.facebook.com/v18.0/{page_id}/subscribed_apps",
-                headers=headers,
-                data={"subscribed_fields": "messages,messaging_postbacks"}
-            )
-            meta_res.raise_for_status()
-    except Exception as e:
-        logger.error(f"Failed to subscribe page: {e}")
-        # Continue anyway
+    # If ig_account_id is missing, auto-discover from Facebook Pages on server side
+    if not ig_account_id:
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(f"https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account,access_token&access_token={access_token}")
+                if res.status_code == 200:
+                    for page in res.json().get('data', []):
+                        ig_acc = page.get('instagram_business_account')
+                        if ig_acc and ig_acc.get('id'):
+                            ig_account_id = ig_acc['id']
+                            page_id = page.get('id')
+                            page_access_token = page.get('access_token')
+                            break
+        except Exception as e:
+            logger.error(f"Server auto-discovery for Instagram failed: {e}")
+
+    if not ig_account_id:
+        raise HTTPException(status_code=400, detail="No Instagram Business Account linked to your Facebook Pages found.")
 
     token_to_save = page_access_token or access_token
+
+    if page_id and page_access_token:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"https://graph.facebook.com/v18.0/{page_id}/subscribed_apps",
+                    headers={"Authorization": f"Bearer {page_access_token}"},
+                    data={"subscribed_fields": "messages,messaging_postbacks"}
+                )
+        except Exception as e:
+            logger.error(f"Failed to subscribe page: {e}")
+
+    existing = supabase_admin.table("channels").select("id").eq("workspace_id", workspace_id).eq("external_account_id", ig_account_id).eq("type", "instagram").execute()
+    
     if existing.data:
-        # Update existing
         response = supabase_admin.table("channels").update({
             "access_token": token_to_save,
             "status": "active",
             "meta_phone_id": page_id
         }).eq("id", existing.data[0]["id"]).execute()
     else:
-        # Insert new
         response = supabase_admin.table("channels").insert({
             "workspace_id": workspace_id,
             "type": "instagram",
@@ -848,6 +883,7 @@ async def connect_instagram_channel(request: Request):
             "meta_phone_id": page_id,
             "status": "active"
         }).execute()
+        
     return {"status": "connected", "data": response.data[0] if response.data else None}
 
 # --- API TOKEN API ---
