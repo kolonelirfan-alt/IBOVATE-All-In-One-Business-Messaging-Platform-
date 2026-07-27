@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '@/lib/api';
 
+import { supabase } from '@/lib/supabase';
+
 interface Contact {
   id: string;
   name: string;
@@ -30,9 +32,14 @@ export default function ContactsPage() {
   const fetchContacts = async () => {
     setIsLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
       const url = new URL(`${getApiUrl()}/api/contacts`);
       if (search) url.searchParams.append('q', search);
-      const res = await fetch(url.toString());
+      url.searchParams.append('user_email', userEmail);
+      const res = await fetch(url.toString(), {
+        headers: { 'X-User-Email': userEmail }
+      });
       const data = await res.json();
       setContacts(data.data || []);
     } catch (err) {
@@ -46,10 +53,12 @@ export default function ContactsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
       await fetch(`${getApiUrl()}/api/contacts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, phone: newPhone })
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
+        body: JSON.stringify({ name: newName, phone: newPhone, user_email: userEmail })
       });
       setShowAddModal(false);
       setNewName('');

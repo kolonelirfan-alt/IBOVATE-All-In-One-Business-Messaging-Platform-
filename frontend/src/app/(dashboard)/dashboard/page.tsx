@@ -25,6 +25,8 @@ const StatCard = ({ label, value, sub, icon, color }: { label: string; value: st
   </div>
 );
 
+import { supabase } from '@/lib/supabase';
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -32,13 +34,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const api = getApiUrl();
-    Promise.all([
-      fetch(`${api}/api/dashboard/stats`).then(r => r.json()),
-      fetch(`${api}/api/channels`).then(r => r.json()),
-    ]).then(([statsData, channelsData]) => {
-      setStats(statsData);
-      setChannels(channelsData.data || []);
-    }).catch(console.error).finally(() => setIsLoading(false));
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const userEmail = user?.email || '';
+      const headers = { 'X-User-Email': userEmail };
+      Promise.all([
+        fetch(`${api}/api/dashboard/stats?user_email=${encodeURIComponent(userEmail)}`, { headers }).then(r => r.json()),
+        fetch(`${api}/api/channels?user_email=${encodeURIComponent(userEmail)}`, { headers }).then(r => r.json()),
+      ]).then(([statsData, channelsData]) => {
+        setStats(statsData);
+        setChannels(channelsData.data || []);
+      }).catch(console.error).finally(() => setIsLoading(false));
+    });
   }, []);
 
   const channelIcon = (type: string) => type === 'whatsapp' ? '💬' : type === 'instagram' ? '📷' : '✉️';

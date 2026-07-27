@@ -336,12 +336,17 @@ async def send_message(request: Request):
     
     return {"status": "success", "data": msg_res.data[0] if msg_res.data else None}
 
+def _extract_workspace_id(request: Request) -> str:
+    user_email = request.headers.get("X-User-Email") or request.query_params.get("user_email")
+    user_id = request.headers.get("X-User-Id") or request.query_params.get("user_id")
+    return _get_demo_workspace_id(user_email=user_email, user_id=user_id)
+
 # --- CONTACTS API ---
 
 @app.get("/api/contacts")
-async def get_contacts(q: str = None):
+async def get_contacts(request: Request, q: str = None):
     """Get all contacts with optional search"""
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         return {"data": []}
     
@@ -353,7 +358,7 @@ async def get_contacts(q: str = None):
     
     # Format the data for the frontend
     formatted = []
-    for c in res.data:
+    for c in res.data or []:
         channel_type = c.get('channels', {}).get('type') if c.get('channels') else 'unknown'
         formatted.append({
             'id': c['id'],
@@ -361,7 +366,7 @@ async def get_contacts(q: str = None):
             'phone': c.get('external_id'),
             'channel': channel_type,
             'created_at': c['created_at'],
-            'tags': [] # We can fetch tags later if needed
+            'tags': []
         })
     return {"data": formatted}
 
@@ -369,7 +374,7 @@ async def get_contacts(q: str = None):
 async def create_contact(request: Request):
     """Create a new manual contact"""
     data = await request.json()
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
@@ -383,24 +388,23 @@ async def create_contact(request: Request):
         'workspace_id': ws_id,
         'name': name,
         'phone': phone,
-        'external_id': phone, # Use phone as external ID for manual contacts
+        'external_id': phone,
     }).execute()
     return {"status": "success", "data": res.data[0] if res.data else None}
 
 # --- CAMPAIGNS API ---
 
 @app.get("/api/campaigns")
-async def get_campaigns():
+async def get_campaigns(request: Request):
     """Get all campaigns"""
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         return {"data": []}
     
-    # Needs to fetch campaign and template name
     res = supabase_admin.table('campaigns').select('*, templates(name)').eq('workspace_id', ws_id).order('created_at', desc=True).execute()
     
     formatted = []
-    for c in res.data:
+    for c in res.data or []:
         formatted.append({
             'id': c['id'],
             'name': c['name'],
@@ -416,13 +420,11 @@ async def get_campaigns():
 async def create_campaign(request: Request):
     """Create a new campaign"""
     data = await request.json()
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
     name = data.get('name')
-    # For demo we skip template_id check if missing, just create the record
-    
     if not name:
         raise HTTPException(status_code=400, detail="Name required")
         
@@ -438,9 +440,9 @@ async def create_campaign(request: Request):
 # --- AUTOMATION API ---
 
 @app.get("/api/automation/rules")
-async def get_automation_rules():
+async def get_automation_rules(request: Request):
     """Get all automation rules for the workspace"""
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         return {"data": []}
     
@@ -451,7 +453,7 @@ async def get_automation_rules():
 async def create_automation_rule(request: Request):
     """Create a new automation rule"""
     data = await request.json()
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
@@ -739,20 +741,21 @@ async def sync_channel(channel_id: str):
 # --- DASHBOARD ANALYTICS API ---
 
 @app.get("/api/dashboard/stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(request: Request):
     """Get overview statistics for the dashboard"""
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
-        return {"total_contacts": 0, "open_conversations": 0, "resolved_today": 0}
+        return {"total_contacts": 0, "total_conversations": 0, "open_conversations": 0, "resolved_conversations": 0}
     
     contacts = supabase_admin.table('contacts').select('id', count='exact').eq('workspace_id', ws_id).execute()
     convs = supabase_admin.table('conversations').select('id, status', count='exact').eq('workspace_id', ws_id).execute()
-    open_convs = [c for c in convs.data if c['status'] == 'open']
-    resolved_convs = [c for c in convs.data if c['status'] == 'resolved']
+    convs_data = convs.data or []
+    open_convs = [c for c in convs_data if c.get('status') == 'open']
+    resolved_convs = [c for c in convs_data if c.get('status') == 'resolved']
     
     return {
-        "total_contacts": contacts.count or 0,
-        "total_conversations": convs.count or 0,
+        "total_contacts": contacts.count or len(contacts.data or []),
+        "total_conversations": convs.count or len(convs_data),
         "open_conversations": len(open_convs),
         "resolved_conversations": len(resolved_convs),
     }

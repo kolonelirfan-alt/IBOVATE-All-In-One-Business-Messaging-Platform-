@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/api';
 
 interface NavItem {
   name: string;
@@ -105,11 +106,19 @@ export default function GlobalSidebar() {
   }, []);
 
   React.useEffect(() => {
-    fetch('/api/proxy/counts')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.all) setInboxCount(data.all); })
-      .catch(() => {});
-  }, []);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.email) {
+        setInboxCount(0);
+        return;
+      }
+      fetch(`${getApiUrl()}/api/inbox/counts?user_email=${encodeURIComponent(user.email)}`, {
+        headers: { 'X-User-Email': user.email }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.all != null) setInboxCount(data.all); })
+        .catch(() => {});
+    });
+  }, [user]);
 
   return (
     <nav className="global-sidebar">
