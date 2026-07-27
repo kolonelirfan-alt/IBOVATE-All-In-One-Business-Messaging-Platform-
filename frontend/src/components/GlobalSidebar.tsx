@@ -77,11 +77,7 @@ const HelpIcon = () => (
 const BASE_NAV_ITEMS = [
   { name: 'Dashboard', path: '/dashboard', icon: <GridIcon />, badgeKey: null, badgeType: 'count' as const },
   { name: 'Inbox', path: '/inbox', icon: <ChatIcon />, badgeKey: 'all' as const, badgeType: 'count' as const },
-  { name: 'Calls', path: '/calls', icon: <PhoneIcon />, badgeKey: null, badge: 'NEW', badgeType: 'new' as const },
-  { name: 'Campaign', path: '/broadcast', icon: <MegaphoneIcon />, badgeKey: null, badgeType: 'count' as const },
   { name: 'Contacts', path: '/contacts', icon: <UsersIcon />, badgeKey: null, badgeType: 'count' as const },
-  { name: 'Bot & Automation', path: '/automation', icon: <BotIcon />, badgeKey: null, badgeType: 'count' as const },
-  { name: 'Report', path: '/report', icon: <BarChartIcon />, badgeKey: null, badgeType: 'count' as const },
   { name: 'Integrations', path: '/integrations', icon: <LinkIcon />, badgeKey: null, badgeType: 'count' as const },
   { name: 'Settings', path: '/settings', icon: <SettingsIcon />, badgeKey: null, badgeType: 'count' as const },
 ];

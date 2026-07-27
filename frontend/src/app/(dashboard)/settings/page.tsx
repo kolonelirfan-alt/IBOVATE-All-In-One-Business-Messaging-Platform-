@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 type SettingsTab =
-  | 'user_management' | 'agent_management' | 'sla' | 'inbox_settings'
-  | 'contact_info' | 'ticket' | 'security'
+  | 'agent_management'
   | 'api_omnichannel' | 'api_chatbot'
-  | 'channels' | 'hours' | 'billing';
+  | 'hours' | 'billing';
 
 interface NavItem {
   key: SettingsTab;
@@ -17,13 +17,7 @@ interface NavItem {
 }
 
 const SETTINGS_NAV: NavItem[] = [
-  { key: 'user_management', label: 'User Management' },
   { key: 'agent_management', label: 'Agent Management' },
-  { key: 'sla', label: 'SLA Management' },
-  { key: 'inbox_settings', label: 'Inbox' },
-  { key: 'contact_info', label: 'Contact Info' },
-  { key: 'ticket', label: 'Ticket' },
-  { key: 'security', label: 'Security' },
   {
     key: 'api_omnichannel', label: 'API Token',
     children: [
@@ -31,7 +25,6 @@ const SETTINGS_NAV: NavItem[] = [
       { key: 'api_chatbot', label: 'Chatbot' },
     ]
   },
-  { key: 'channels', label: 'Channels' },
   { key: 'hours', label: 'Business Hours' },
   { key: 'billing', label: 'Billing & Plan' },
 ];
@@ -76,10 +69,12 @@ function AgentsTab({ agents, onInviteSuccess }: { agents: Agent[], onInviteSucce
     setIsInviting(true);
     setError('');
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
       const res = await fetch(`${getApiUrl()}/api/workspace/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() })
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
+        body: JSON.stringify({ email: email.trim(), user_email: userEmail })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to invite agent');
@@ -193,7 +188,11 @@ function ApiTokenTab({ tokenType }: { tokenType: 'omnichannel' | 'chatbot' }) {
   const fetchTokens = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${getApiUrl()}/api/workspace/api-tokens?token_type=${tokenType}`);
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
+      const res = await fetch(`${getApiUrl()}/api/workspace/api-tokens?token_type=${tokenType}&user_email=${encodeURIComponent(userEmail)}`, {
+        headers: { 'X-User-Email': userEmail }
+      });
       const data = await res.json();
       setTokens(data.data || []);
     } catch { } finally { setIsLoading(false); }
@@ -206,10 +205,12 @@ function ApiTokenTab({ tokenType }: { tokenType: 'omnichannel' | 'chatbot' }) {
     setIsGenerating(true);
     setGeneratedToken(null);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
       const res = await fetch(`${getApiUrl()}/api/workspace/api-tokens`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTokenName.trim(), type: tokenType })
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
+        body: JSON.stringify({ name: newTokenName.trim(), type: tokenType, user_email: userEmail })
       });
       const data = await res.json();
       if (data.token) {
@@ -391,29 +392,30 @@ export default function SettingsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
 
-  const fetchAgents = useCallback(() => {
-    fetch(`${getApiUrl()}/api/workspace/agents`).then(r => r.json()).then(d => d.data && setAgents(d.data)).catch(() => {});
+  const fetchAgents = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userEmail = user?.email || '';
+    fetch(`${getApiUrl()}/api/workspace/agents?user_email=${encodeURIComponent(userEmail)}`, {
+      headers: { 'X-User-Email': userEmail }
+    }).then(r => r.json()).then(d => d.data && setAgents(d.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
     const api = getApiUrl();
-    fetch(`${api}/api/workspace`).then(r => r.json()).then(d => d.data && setWorkspace(d.data)).catch(() => {});
-    fetchAgents();
-    fetch(`${api}/api/channels`).then(r => r.json()).then(d => d.data && setChannels(d.data)).catch(() => {});
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const userEmail = user?.email || '';
+      const headers = { 'X-User-Email': userEmail };
+      fetch(`${api}/api/workspace?user_email=${encodeURIComponent(userEmail)}`, { headers }).then(r => r.json()).then(d => d.data && setWorkspace(d.data)).catch(() => {});
+      fetchAgents();
+      fetch(`${api}/api/channels?user_email=${encodeURIComponent(userEmail)}`, { headers }).then(r => r.json()).then(d => d.data && setChannels(d.data)).catch(() => {});
+    });
   }, [fetchAgents]);
 
   const renderContent = () => {
     switch (activeTab) {
       case 'agent_management': return <AgentsTab agents={agents} onInviteSuccess={fetchAgents} />;
-      case 'user_management': return <ComingSoonTab title="User Management" />;
-      case 'sla': return <ComingSoonTab title="SLA Management" />;
-      case 'inbox_settings': return <ComingSoonTab title="Inbox Settings" />;
-      case 'contact_info': return <ComingSoonTab title="Contact Info" />;
-      case 'ticket': return <ComingSoonTab title="Ticket Settings" />;
-      case 'security': return <ComingSoonTab title="Security" />;
       case 'api_omnichannel': return <ApiTokenTab tokenType="omnichannel" />;
       case 'api_chatbot': return <ApiTokenTab tokenType="chatbot" />;
-      case 'channels': return <ChannelsTab channels={channels} />;
       case 'hours': return <BusinessHoursTab />;
       case 'billing': return <BillingTab workspace={workspace} />;
       default: return null;
