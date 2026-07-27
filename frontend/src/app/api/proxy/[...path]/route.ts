@@ -5,8 +5,9 @@ const getBackendBaseUrl = () => {
   return url.replace(/\/+$/, '');
 };
 
-async function handleProxy(req: NextRequest, { params }: { params: { path: string[] } }) {
-  const rawPath = params.path ? params.path.join('/') : '';
+async function handleProxy(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const { path } = await context.params;
+  const rawPath = path ? path.join('/') : '';
   const search = req.nextUrl.search;
   const baseUrl = getBackendBaseUrl();
   

@@ -150,7 +150,7 @@ export default function IntegrationsPage() {
     setLoadingText('');
   };
 
-  const submitConnection = async (token: string, externalId: string, pageId?: string, pageToken?: string) => {
+  const submitConnection = async (token: string, externalId?: string, pageId?: string, pageToken?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userEmail = user?.email || '';
@@ -182,7 +182,7 @@ export default function IntegrationsPage() {
           }));
         }
       } else {
-        alert(resJson.detail || 'Failed to connect channel on backend. Please check your credentials.');
+        alert(resJson.detail || 'Failed to connect channel. Please ensure your Facebook account has a valid business account linked.');
       }
     } catch (err: any) {
       console.error(err);
@@ -195,7 +195,7 @@ export default function IntegrationsPage() {
 
   const handleFacebookLogin = () => {
     // @ts-ignore
-    if (!window.FB) return alert("Facebook SDK is still loading or failed to load. Please ensure your App ID is configured.");
+    if (!window.FB) return alert("Facebook SDK is still loading or failed to load. Please refresh the page and try again.");
     
     setIsSubmitting(true);
     setLoadingText('Awaiting Facebook Login...');
@@ -204,71 +204,9 @@ export default function IntegrationsPage() {
     window.FB.login((response: any) => {
       if (response.authResponse) {
         const token = response.authResponse.accessToken;
-        setLoadingText('Fetching Meta Accounts...');
-        
-        if (connectingId === 'instagram') {
-          fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account,access_token&access_token=${token}`)
-            .then(res => res.json())
-            .then(data => {
-              const pageWithIg = data.data?.find((p: any) => p.instagram_business_account);
-              if (pageWithIg) {
-                submitConnection(token, pageWithIg.instagram_business_account.id, pageWithIg.id, pageWithIg.access_token);
-              } else {
-                alert("No Instagram Business Account linked to your Facebook Pages found.");
-                setIsSubmitting(false);
-                setLoadingText('');
-              }
-            }).catch(e => {
-              console.error(e);
-              setIsSubmitting(false);
-              setLoadingText('');
-            });
-        } else if (connectingId === 'whatsapp') {
-          Promise.all([
-            fetch(`https://graph.facebook.com/v18.0/me/client_whatsapp_business_accounts?fields=id,name,phone_numbers&access_token=${token}`).then(r => r.json()).catch(() => ({})),
-            fetch(`https://graph.facebook.com/v18.0/me/businesses?fields=owned_whatsapp_business_accounts{phone_numbers}&access_token=${token}`).then(r => r.json()).catch(() => ({}))
-          ]).then(([clientWaba, ownedWaba]) => {
-            let phoneId = null;
-
-            if (clientWaba.data && clientWaba.data.length > 0) {
-              for (const waba of clientWaba.data) {
-                if (waba.phone_numbers?.data?.length > 0) {
-                  phoneId = waba.phone_numbers.data[0].id;
-                  break;
-                }
-              }
-            }
-
-            if (!phoneId && ownedWaba.data && ownedWaba.data.length > 0) {
-              for (const biz of ownedWaba.data) {
-                const wabaList = biz.owned_whatsapp_business_accounts?.data || [];
-                for (const waba of wabaList) {
-                  if (waba.phone_numbers?.data?.length > 0) {
-                    phoneId = waba.phone_numbers.data[0].id;
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (phoneId) {
-              submitConnection(token, phoneId);
-            } else {
-              const manualId = prompt("Auto-detection did not find a WhatsApp Phone Number ID linked directly to your Facebook user.\n\nPlease enter your WhatsApp Phone Number ID (from Meta Developer Portal):");
-              if (manualId && manualId.trim()) {
-                submitConnection(token, manualId.trim());
-              } else {
-                setIsSubmitting(false);
-                setLoadingText('');
-              }
-            }
-          }).catch(e => {
-            console.error(e);
-            alert("Error fetching WhatsApp account info: " + e.message);
-            setIsSubmitting(false);
-            setLoadingText('');
-          });
-        }
+        setLoadingText('Connecting channel to your workspace...');
+        // Submit token directly to backend server for automatic discovery
+        submitConnection(token);
       } else {
         console.log('User cancelled login or did not fully authorize.');
         setIsSubmitting(false);
@@ -282,57 +220,39 @@ export default function IntegrationsPage() {
 
   const handleDisconnect = async (type: string) => {
     if (!confirm(`Are you sure you want to disconnect ${type}?`)) return;
-    
-    const channel = channels.find((c: any) => c.type === type);
-    if (!channel) return;
-    
     try {
-      await fetch(`${getApiUrl()}/api/channels/${channel.id}`, { method: 'DELETE' });
-      
-      // Refresh channels
-      const channelsRes = await fetch(`${getApiUrl()}/api/channels`);
-      const data = await channelsRes.json();
-      if (data.data) {
-        setChannels(data.data);
-        setIntegrations(prev => prev.map(int => {
-          if (data.data.some((ch: any) => ch.type === int.id && ch.status !== 'disconnected')) {
-            return { ...int, status: 'connected' as const };
-          }
-          return { ...int, status: int.status === 'connected' ? 'available' : int.status };
-        }));
+      const channelToDisconnect = channels.find(c => c.type === type);
+      if (channelToDisconnect) {
+        await fetch(`${getApiUrl()}/api/channels/${channelToDisconnect.id}`, { method: 'DELETE' });
+        setChannels(prev => prev.filter(c => c.id !== channelToDisconnect.id));
+        setIntegrations(prev => prev.map(int => int.id === type ? { ...int, status: 'available' as const } : int));
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to disconnect');
+      console.error('Failed to disconnect channel:', err);
     }
   };
 
   const handleSync = async (type: string) => {
-    const channel = channels.find((c: any) => c.type === type);
-    if (!channel) return;
-    
-    setIsSyncing(type);
     try {
-      const res = await fetch(`${getApiUrl()}/api/channels/${channel.id}/sync`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`Successfully synced ${data.synced_conversations || 0} recent conversations!`);
-      } else {
-        alert(`Failed to sync: ${data.detail || 'Unknown error'}`);
+      setIsSyncing(type);
+      const channelToSync = channels.find(c => c.type === type);
+      if (channelToSync) {
+        const res = await fetch(`${getApiUrl()}/api/channels/${channelToSync.id}/sync`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          alert(`Successfully synced ${data.count || 0} messages!`);
+        } else {
+          alert('Sync complete!');
+        }
       }
     } catch (err) {
-      console.error(err);
-      alert('Network error while syncing.');
+      console.error('Failed to sync channel:', err);
     } finally {
       setIsSyncing(null);
     }
   };
 
-  // handleConnectSubmit removed as it's now submitConnection
-
-
   useEffect(() => {
-    // Fetch connected channels to update status for authenticated user
     supabase.auth.getUser().then(({ data: { user } }) => {
       const userEmail = user?.email || '';
       fetch(`${getApiUrl()}/api/channels?user_email=${encodeURIComponent(userEmail)}`, {
@@ -342,8 +262,6 @@ export default function IntegrationsPage() {
         .then(data => {
           if (data.data) {
             setChannels(data.data);
-            
-            // Update the status of integrations based on connected channels
             setIntegrations(prev => prev.map(int => {
               const isConnected = data.data.some((ch: any) => ch.type === int.id && ch.status === 'active');
               if (isConnected) {
@@ -383,7 +301,6 @@ export default function IntegrationsPage() {
 
       {/* Controls: Search and Filters */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* Category Pills */}
         <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '4px' }}>
           {categories.map(cat => (
             <button
@@ -408,7 +325,6 @@ export default function IntegrationsPage() {
           ))}
         </div>
 
-        {/* Search Bar */}
         <div style={{ position: 'relative', width: 280 }}>
           <svg style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>
@@ -511,7 +427,6 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      {/* Global Style for hover-lift */}
       <style dangerouslySetInnerHTML={{__html: `
         .hover-lift:hover {
           transform: translateY(-4px);
@@ -531,7 +446,7 @@ export default function IntegrationsPage() {
               We require <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>whatsapp_business_management</code> and <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>instagram_manage_messages</code> to allow you to read and reply to customer conversations directly from your OmniCRM inbox. We never post on your behalf.
             </div>
             
-            {/* Facebook Login Button */}
+            {/* 1-Click Facebook Login Button */}
             <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
               <button onClick={handleFacebookLogin} disabled={isSubmitting} style={{ 
                 background: isSubmitting ? '#a0c3ff' : '#1877F2', 
