@@ -85,56 +85,86 @@ async def handle_instagram_webhook(request: Request):
 @app.get("/api/inbox/contacts")
 async def get_contacts_inbox(workspace_id: str = None, filter: str = "all"):
     """Get all contacts with their latest conversation for the sidebar"""
-    # Force use the active demo workspace ID
     workspace_id = _get_demo_workspace_id()
     if not workspace_id:
         return {"data": []}
         
-    # Get contacts
-    contacts_res = supabase_admin.table('contacts').select('*, channels(type)').eq('workspace_id', workspace_id).execute()
-    contacts = contacts_res.data
-    
+    # Bulk fetch conversations with joined contacts, channels, and messages in 1 query
+    convs_res = supabase_admin.table('conversations').select(
+        '*, contacts(*, channels(type)), messages(*)'
+    ).eq('workspace_id', workspace_id).order('last_message_at', desc=True).execute()
+
     result = []
-    for contact in contacts:
-        # Get latest conversation for this contact
-        conv_res = supabase_admin.table('conversations').select('*').eq('contact_id', contact['id']).order('last_message_at', desc=True).limit(1).execute()
-        conv = conv_res.data[0] if conv_res.data else None
+    seen_contacts = set()
+
+    for conv in convs_res.data or []:
+        contact = conv.get('contacts')
+        if not contact:
+            continue
+            
+        cid = contact['id']
+        if cid in seen_contacts:
+            continue
+            
+        status = conv.get('status')
+        assigned_to = conv.get('assigned_to')
         
         # Apply filters
-        if conv:
-            status = conv.get('status')
-            assigned_to = conv.get('assigned_to')
-            
-            if filter == "unassigned" and (status != "open" or assigned_to is not None):
-                continue
-            if filter == "assigned" and (status != "open" or assigned_to is None):
-                continue
-            if filter == "resolved" and status != "resolved":
-                continue
-            if filter == "mine" and (status != "open" or assigned_to is None): # Simplification for demo
-                continue
-            # "all" or any other unrecognized filter just lets it pass
-            
-        last_msg = None
-        if conv:
-            msg_res = supabase_admin.table('messages').select('*').eq('conversation_id', conv['id']).order('sent_at', desc=True).limit(1).execute()
-            last_msg = msg_res.data[0] if msg_res.data else None
-            
+        if filter == "unassigned" and (status != "open" or assigned_to is not None):
+            continue
+        if filter == "assigned" and (status != "open" or assigned_to is None):
+            continue
+        if filter == "resolved" and status != "resolved":
+            continue
+        if filter == "mine" and (status != "open" or assigned_to is None):
+            continue
+
+        seen_contacts.add(cid)
+        msgs = conv.get('messages', [])
+        msgs.sort(key=lambda m: m.get('sent_at') or '', reverse=True)
+        last_msg = msgs[0] if msgs else None
+
+        channel_type = 'unknown'
+        if contact.get('channels'):
+            channel_type = contact['channels'].get('type', 'unknown')
+
         result.append({
             "id": contact['id'],
             "external_id": contact['external_id'],
-            "name": contact['name'] or contact['external_id'],
+            "name": contact.get('name') or contact['external_id'],
             "phone": contact.get('phone'),
-            "channel": contact['channels']['type'] if contact.get('channels') else 'unknown',
-            "status": 'online' if conv and conv.get('status') == 'open' else 'offline',
-            "ticket_status": conv.get('status') if conv else None,
-            "priority": conv.get('priority') if conv else None,
-            "assigned_to": conv.get('assigned_to') if conv else None,
+            "channel": channel_type,
+            "status": 'online' if status == 'open' else 'offline',
+            "ticket_status": status,
+            "priority": conv.get('priority'),
+            "assigned_to": assigned_to,
             "tags": [],
-            "last_message_at": last_msg['sent_at'] if last_msg else None,
+            "last_message_at": last_msg['sent_at'] if last_msg else conv.get('last_message_at'),
             "last_message_preview": last_msg['content'] if last_msg else None,
-            "conversation_id": conv['id'] if conv else None
+            "conversation_id": conv['id']
         })
+        
+    # Add contacts that don't have conversations yet
+    if filter in ("all", "unassigned"):
+        contacts_res = supabase_admin.table('contacts').select('*, channels(type)').eq('workspace_id', workspace_id).execute()
+        for contact in contacts_res.data or []:
+            if contact['id'] not in seen_contacts:
+                channel_type = contact['channels'].get('type', 'unknown') if contact.get('channels') else 'unknown'
+                result.append({
+                    "id": contact['id'],
+                    "external_id": contact['external_id'],
+                    "name": contact.get('name') or contact['external_id'],
+                    "phone": contact.get('phone'),
+                    "channel": channel_type,
+                    "status": 'offline',
+                    "ticket_status": None,
+                    "priority": None,
+                    "assigned_to": None,
+                    "tags": [],
+                    "last_message_at": None,
+                    "last_message_preview": None,
+                    "conversation_id": None
+                })
         
     return {"data": result}
 

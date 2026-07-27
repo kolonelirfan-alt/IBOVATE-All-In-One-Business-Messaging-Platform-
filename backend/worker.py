@@ -184,11 +184,15 @@ def _handle_ig_message(message_info: dict):
     if not sender_id or not recipient_id or not meta_message_id:
         return
         
-    # Find channel. In IG, the recipient_id is our Page/IG Account ID
-    channel_res = supabase.table("channels").select("*").eq("meta_phone_id", recipient_id).eq("type", "instagram").execute()
+    # Find channel. In IG, recipient_id is our IG Account ID (external_account_id) or Page ID (meta_phone_id)
+    channel_res = supabase.table("channels").select("*").eq("external_account_id", recipient_id).eq("type", "instagram").execute()
     if not channel_res.data:
-        # It might be an echo (we are the sender)
-        channel_res = supabase.table("channels").select("*").eq("meta_phone_id", sender_id).eq("type", "instagram").execute()
+        channel_res = supabase.table("channels").select("*").eq("meta_phone_id", recipient_id).eq("type", "instagram").execute()
+    if not channel_res.data:
+        # Check if it's an echo (we sent the message)
+        channel_res = supabase.table("channels").select("*").eq("external_account_id", sender_id).eq("type", "instagram").execute()
+        if not channel_res.data:
+            channel_res = supabase.table("channels").select("*").eq("meta_phone_id", sender_id).eq("type", "instagram").execute()
         if not channel_res.data:
             logger.warning(f"IG Webhook received for unknown account: {recipient_id}")
             return
