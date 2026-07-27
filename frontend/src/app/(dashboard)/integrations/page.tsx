@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 // Icon components for Integrations
 const WhatsAppIcon = () => (
@@ -151,26 +152,30 @@ export default function IntegrationsPage() {
 
   const submitConnection = async (token: string, externalId: string, pageId?: string, pageToken?: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
       setLoadingText('Connecting channel to your workspace...');
       const endpoint = connectingId === 'whatsapp' ? '/api/channels/whatsapp/connect' : '/api/channels/instagram/connect';
       const body = connectingId === 'whatsapp' 
-        ? { access_token: token, phone_number_id: externalId, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' } 
-        : { access_token: token, ig_account_id: externalId, page_id: pageId, page_access_token: pageToken, workspace_id: '66e3c66a-9464-4ee6-abd0-4d886b5ef3c8' };
+        ? { access_token: token, phone_number_id: externalId, user_email: userEmail } 
+        : { access_token: token, ig_account_id: externalId, page_id: pageId, page_access_token: pageToken, user_email: userEmail };
       
       const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
         body: JSON.stringify(body)
       });
       
       if (res.ok) {
         setShowConnectModal(false);
-        const channelsRes = await fetch(`${getApiUrl()}/api/channels`);
+        const channelsRes = await fetch(`${getApiUrl()}/api/channels`, {
+          headers: { 'X-User-Email': userEmail }
+        });
         const data = await channelsRes.json();
         if (data.data) {
           setChannels(data.data);
           setIntegrations(prev => prev.map(int => {
-            if (data.data.some((ch: any) => ch.type === int.id)) return { ...int, status: 'connected' as const };
+            if (data.data.some((ch: any) => ch.type === int.id && ch.status === 'active')) return { ...int, status: 'connected' as const };
             return int;
           }));
         }
@@ -303,24 +308,29 @@ export default function IntegrationsPage() {
 
 
   useEffect(() => {
-    // Fetch connected channels to update status
-    fetch(`${getApiUrl()}/api/channels`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.data) {
-          setChannels(data.data);
-          
-          // Update the status of integrations based on connected channels
-          setIntegrations(prev => prev.map(int => {
-            const isConnected = data.data.some((ch: any) => ch.type === int.id && ch.status === 'active');
-            if (isConnected) {
-              return { ...int, status: 'connected' };
-            }
-            return int;
-          }));
-        }
+    // Fetch connected channels to update status for authenticated user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const userEmail = user?.email || '';
+      fetch(`${getApiUrl()}/api/channels?user_email=${encodeURIComponent(userEmail)}`, {
+        headers: { 'X-User-Email': userEmail }
       })
-      .catch(err => console.error('Failed to fetch channels:', err));
+        .then(res => res.json())
+        .then(data => {
+          if (data.data) {
+            setChannels(data.data);
+            
+            // Update the status of integrations based on connected channels
+            setIntegrations(prev => prev.map(int => {
+              const isConnected = data.data.some((ch: any) => ch.type === int.id && ch.status === 'active');
+              if (isConnected) {
+                return { ...int, status: 'connected' as const };
+              }
+              return { ...int, status: int.status === 'connected' ? 'available' as const : int.status };
+            }));
+          }
+        })
+        .catch(err => console.error('Failed to fetch channels:', err));
+    });
   }, []);
 
   const filteredIntegrations = integrations.filter(int => {

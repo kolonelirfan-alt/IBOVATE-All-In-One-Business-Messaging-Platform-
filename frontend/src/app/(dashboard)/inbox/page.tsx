@@ -31,8 +31,12 @@ export default function InboxPage() {
   const fetchContacts = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const url = `${getApiUrl()}/api/inbox/contacts?workspace_id=${DEMO_WORKSPACE_ID}${activeFilter !== 'all' ? `&filter=${activeFilter}` : ''}`;
-      const res = await fetch(url);
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || '';
+      const url = `${getApiUrl()}/api/inbox/contacts?user_email=${encodeURIComponent(userEmail)}${activeFilter !== 'all' ? `&filter=${activeFilter}` : ''}`;
+      const res = await fetch(url, {
+        headers: { 'X-User-Email': userEmail }
+      });
       const data = await res.json();
       if (data.data) {
         setContacts(data.data);
@@ -76,12 +80,17 @@ export default function InboxPage() {
 
   // Fetch badge counts
   useEffect(() => {
-    fetch(`${getApiUrl()}/api/inbox/counts?workspace_id=${DEMO_WORKSPACE_ID}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data) setCounts(data);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const userEmail = user?.email || '';
+      fetch(`${getApiUrl()}/api/inbox/counts?user_email=${encodeURIComponent(userEmail)}`, {
+        headers: { 'X-User-Email': userEmail }
       })
-      .catch(() => {});
+        .then(r => r.json())
+        .then(data => {
+          if (data) setCounts(data);
+        })
+        .catch(() => {});
+    });
   }, [activeFilter, contacts]);
 
   // Fetch messages when contact changes

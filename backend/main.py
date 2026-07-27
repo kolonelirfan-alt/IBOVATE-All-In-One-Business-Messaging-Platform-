@@ -83,9 +83,11 @@ async def handle_instagram_webhook(request: Request):
 # --- INBOX API (For Frontend) ---
 
 @app.get("/api/inbox/contacts")
-async def get_contacts_inbox(workspace_id: str = None, filter: str = "all"):
+async def get_contacts_inbox(request: Request, workspace_id: str = None, filter: str = "all"):
     """Get all contacts with their latest conversation for the sidebar"""
-    workspace_id = _get_demo_workspace_id()
+    user_email = request.headers.get("X-User-Email") or request.query_params.get("user_email")
+    user_id = request.headers.get("X-User-Id") or request.query_params.get("user_id")
+    workspace_id = _get_demo_workspace_id(user_email=user_email, user_id=user_id)
     if not workspace_id:
         return {"data": []}
         
@@ -169,9 +171,11 @@ async def get_contacts_inbox(workspace_id: str = None, filter: str = "all"):
     return {"data": result}
 
 @app.get("/api/inbox/counts")
-async def get_counts(workspace_id: str = None):
+async def get_counts(request: Request, workspace_id: str = None):
     """Get unread badge counts per filter category"""
-    workspace_id = _get_demo_workspace_id()
+    user_email = request.headers.get("X-User-Email") or request.query_params.get("user_email")
+    user_id = request.headers.get("X-User-Id") or request.query_params.get("user_id")
+    workspace_id = _get_demo_workspace_id(user_email=user_email, user_id=user_id)
     if not workspace_id:
         return {"all": 0, "unassigned": 0, "assigned": 0, "resolved": 0}
 
@@ -480,10 +484,35 @@ async def update_automation_rule(rule_id: str, request: Request):
     res = supabase_admin.table('automation_rules').update(update_data).eq('id', rule_id).execute()
     return {"status": "success", "data": res.data[0] if res.data else None}
 
-# --- SETTINGS API ---
+def _get_demo_workspace_id(user_email: str = None, user_id: str = None):
+    # 1. Primary workspace for kolonel.irfan@gmail.com
+    if user_email == "kolonel.irfan@gmail.com":
+        return "f14e4aa3-a921-4f9c-8e23-6691daea608d"
+        
+    if user_email:
+        res = supabase_admin.table('users').select('workspace_id').eq('email', user_email).execute()
+        if res.data and res.data[0].get('workspace_id'):
+            return res.data[0]['workspace_id']
+        ws_res = supabase_admin.table('workspaces').select('id').eq('name', f"Workspace ({user_email})").execute()
+        if ws_res.data:
+            return ws_res.data[0]['id']
+            
+    if user_id:
+        res = supabase_admin.table('users').select('workspace_id').eq('id', user_id).execute()
+        if res.data and res.data[0].get('workspace_id'):
+            return res.data[0]['workspace_id']
 
-def _get_demo_workspace_id():
-    ws_res = supabase_admin.table('workspaces').select('id').limit(1).execute()
+    # 2. If new logged-in user email provided, create a separate isolated workspace for them
+    if user_email:
+        try:
+            ws = supabase_admin.table('workspaces').insert({'name': f'Workspace ({user_email})', 'plan': 'trial'}).execute()
+            if ws.data:
+                return ws.data[0]['id']
+        except Exception:
+            pass
+
+    # 3. Fallback to primary workspace for default/demo load
+    ws_res = supabase_admin.table('workspaces').select('id').order('created_at', desc=False).limit(1).execute()
     return ws_res.data[0]['id'] if ws_res.data else None
 
 @app.get("/api/workspace")
@@ -552,9 +581,11 @@ async def invite_agent(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/channels")
-async def get_channels():
+async def get_channels(request: Request):
     """Get all connected channels"""
-    ws_id = _get_demo_workspace_id()
+    user_email = request.headers.get("X-User-Email") or request.query_params.get("user_email")
+    user_id = request.headers.get("X-User-Id") or request.query_params.get("user_id")
+    ws_id = _get_demo_workspace_id(user_email=user_email, user_id=user_id)
     if not ws_id:
         return {"data": []}
     channels = supabase_admin.table('channels').select('*').eq('workspace_id', ws_id).execute()
@@ -733,7 +764,8 @@ async def connect_whatsapp_channel(request: Request):
     data = await request.json()
     access_token = data.get("access_token")
     phone_number_id = data.get("phone_number_id")
-    workspace_id = _get_demo_workspace_id()
+    user_email = data.get("user_email") or request.headers.get("X-User-Email")
+    workspace_id = _get_demo_workspace_id(user_email=user_email)
     
     if not access_token or not workspace_id or not phone_number_id:
         raise HTTPException(status_code=400, detail="Missing required fields")
@@ -746,18 +778,22 @@ async def connect_whatsapp_channel(request: Request):
             if res.status_code != 200:
                 raise HTTPException(status_code=400, detail="Invalid Access Token or Phone Number ID")
     except Exception as e:
-        logger.error(f"Failed to verify Meta API token: {e}")
-        # In a real app we'd throw an error here, but for testing we'll proceed if network fails
+        logger.error(f"WhatsApp token verification failed: {e}")
         
-    # Upsert channel
-    response = supabase_admin.table("channels").insert({
-        "workspace_id": workspace_id,
-        "type": "whatsapp",
-        "external_account_id": phone_number_id, # Using phone_number_id as external_account_id
-        "access_token": access_token,
-        "meta_phone_id": phone_number_id,
-        "status": "active"
-    }).execute()
+    existing = supabase_admin.table("channels").select("id").eq("workspace_id", workspace_id).eq("meta_phone_id", phone_number_id).eq("type", "whatsapp").execute()
+    if existing.data:
+        response = supabase_admin.table("channels").update({
+            "access_token": access_token,
+            "status": "active"
+        }).eq("id", existing.data[0]["id"]).execute()
+    else:
+        response = supabase_admin.table("channels").insert({
+            "workspace_id": workspace_id,
+            "type": "whatsapp",
+            "meta_phone_id": phone_number_id,
+            "access_token": access_token,
+            "status": "active"
+        }).execute()
     
     return {"status": "connected", "data": response.data[0] if response.data else None}
 
@@ -768,7 +804,8 @@ async def connect_instagram_channel(request: Request):
     ig_account_id = data.get("ig_account_id")
     page_id = data.get("page_id")
     page_access_token = data.get("page_access_token")
-    workspace_id = _get_demo_workspace_id()
+    user_email = data.get("user_email") or request.headers.get("X-User-Email")
+    workspace_id = _get_demo_workspace_id(user_email=user_email)
     
     if not access_token or not workspace_id or not ig_account_id:
         raise HTTPException(status_code=400, detail="Missing required fields")
