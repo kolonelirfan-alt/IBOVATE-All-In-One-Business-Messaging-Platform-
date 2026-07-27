@@ -518,19 +518,19 @@ def _get_demo_workspace_id(user_email: str = None, user_id: str = None):
     return ws_res.data[0]['id'] if ws_res.data else None
 
 @app.get("/api/workspace")
-async def get_workspace():
-    """Get current workspace info"""
-    ws_id = _get_demo_workspace_id()
+async def get_workspace(request: Request):
+    """Get current workspace info for the user"""
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    ws = supabase_admin.table('workspaces').select('*').eq('id', ws_id).single().execute()
-    return {"data": ws.data}
+    ws = supabase_admin.table('workspaces').select('*').eq('id', ws_id).execute()
+    return {"data": ws.data[0] if ws.data else None}
 
 @app.patch("/api/workspace")
 async def update_workspace(request: Request):
     """Update workspace name / settings"""
     data = await request.json()
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
     allowed = {"name"}
@@ -539,13 +539,24 @@ async def update_workspace(request: Request):
     return {"status": "success", "data": res.data[0] if res.data else None}
 
 @app.get("/api/workspace/agents")
-async def get_agents():
-    """Get all agents in the workspace"""
-    ws_id = _get_demo_workspace_id()
+async def get_agents(request: Request):
+    """Get all agents in the workspace for the authenticated user"""
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         return {"data": []}
     agents = supabase_admin.table('users').select('id, email, role, created_at').eq('workspace_id', ws_id).execute()
-    return {"data": agents.data}
+    agents_data = agents.data or []
+    
+    # If workspace users table has no rows for this workspace yet, include requesting user as owner
+    user_email = request.headers.get("X-User-Email") or request.query_params.get("user_email")
+    if not agents_data and user_email:
+        agents_data = [{
+            "id": "owner",
+            "email": user_email,
+            "role": "admin",
+            "created_at": datetime.utcnow().isoformat()
+        }]
+    return {"data": agents_data}
 
 @app.post("/api/workspace/invite")
 async def invite_agent(request: Request):
@@ -555,21 +566,18 @@ async def invite_agent(request: Request):
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
         
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
-    # Check if user already exists in workspace
     existing = supabase_admin.table('users').select('id').eq('email', email).eq('workspace_id', ws_id).execute()
     if existing.data:
         raise HTTPException(status_code=400, detail="User already exists in this workspace")
         
     try:
-        # Send invite via Supabase Auth
         res = supabase_admin.auth.admin.invite_user_by_email(email)
         user_id = res.user.id
         
-        # Add to public.users
         supabase_admin.table('users').upsert({
             'id': user_id,
             'workspace_id': ws_id,
@@ -934,9 +942,9 @@ async def connect_instagram_channel(request: Request):
 import secrets
 
 @app.get("/api/workspace/api-tokens")
-async def get_api_tokens(token_type: str = None):
+async def get_api_tokens(request: Request, token_type: str = None):
     """Get all API tokens for the workspace"""
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         return {"data": []}
     
@@ -947,7 +955,7 @@ async def get_api_tokens(token_type: str = None):
     
     # Mask token — show only first 8 + last 4 characters
     result = []
-    for t in tokens.data:
+    for t in tokens.data or []:
         masked = t['token'][:8] + '•' * 20 + t['token'][-4:]
         result.append({**t, 'token_display': masked})
     return {"data": result}
@@ -957,12 +965,12 @@ async def create_api_token(request: Request):
     """Generate a new API token"""
     data = await request.json()
     name = data.get("name", "My API Token")
-    token_type = data.get("type", "omnichannel")  # 'omnichannel' | 'chatbot'
+    token_type = data.get("type", "omnichannel")
     
     if token_type not in ("omnichannel", "chatbot"):
         raise HTTPException(status_code=400, detail="type must be 'omnichannel' or 'chatbot'")
     
-    ws_id = _get_demo_workspace_id()
+    ws_id = _extract_workspace_id(request)
     if not ws_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
     
