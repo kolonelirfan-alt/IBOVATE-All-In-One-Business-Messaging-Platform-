@@ -22,25 +22,27 @@ const InstagramIcon = () => (
         <stop offset="100%" stopColor="#bc1888"/>
       </linearGradient>
     </defs>
-    <path fill="url(#ig-grad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm3.98-10.405a1.44 1.44 0 11-2.88 0 1.44 1.44 0 012.88 0z"/>
-  </svg>
-);
-
-const OpenAIIcon = () => (
-  <svg viewBox="0 0 24 24" width="32" height="32" fill="#10a37f">
-    <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A6.0651 6.0651 0 0 0 19.0193 19.818a5.9847 5.9847 0 0 0 3.9977-2.9001 6.0462 6.0462 0 0 0-.7351-7.0968zM8.7505 5.6172A4.2705 4.2705 0 0 1 15.9189 6.94l-3.834 2.2136-3.3344-1.925v-1.6114zm-3.085 4.1166l3.3343 1.925v3.8502L5.6654 13.584A4.2705 4.2705 0 0 1 5.6655 9.7338zM8.7505 18.3828v-1.6114l3.3344-1.925 3.834 2.2136a4.2705 4.2705 0 0 1-7.1684 1.3228zm11.1894-3.151l-5.006-2.89L11.6095 14.5v3.8502l3.3344 1.925a4.2705 4.2705 0 0 1 5.006-5.0434zm.3946-5.498L15.3285 7.8087 11.9941 9.7338l3.3344 1.925 3.834 2.2136A4.2705 4.2705 0 0 1 20.3345 9.7338zM12 11.2343l1.834-1.0588 1.834 1.0588v2.1176l-1.834 1.0588-1.834-1.0588V11.2343z"/>
+    <path fill="url(#ig-grad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
   </svg>
 );
 
 const TelegramIcon = () => (
-  <svg viewBox="0 0 24 24" width="32" height="32" fill="#229ED9">
-    <path d="M12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12zM5.526 11.677c3.921-1.708 6.536-2.836 7.844-3.385 3.73-1.572 4.505-1.84 5.011-1.85.111-.002.36.026.518.155.132.109.171.258.188.361.018.103.037.33.02.505-.198 2.016-1.056 7.126-1.498 9.492-.187.997-.55 1.332-.897 1.365-.758.073-1.332-.497-2.067-.978-1.15-.752-1.801-1.218-2.92-1.954-1.294-.85-.455-1.317.283-2.083.193-.2 3.551-3.256 3.616-3.535.008-.035.015-.164-.06-.231-.076-.067-.193-.043-.277-.024-.118.027-2.001 1.272-5.647 3.733-.535.367-1.018.544-1.448.535-.472-.01-1.381-.267-2.057-.487-.828-.27-1.485-.413-1.428-.87.03-.239.36-.484.99-.735z"/>
+  <svg viewBox="0 0 24 24" width="32" height="32" fill="#0088cc">
+    <path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.56 8.16l-2.03 9.56c-.15.68-.55.84-1.12.52l-3.1-2.29-1.5 1.44c-.16.16-.3.3-.61.3l.22-3.17 5.77-5.21c.25-.22-.05-.34-.39-.12l-7.14 4.5-3.07-.96c-.67-.21-.68-.67.14-.99l12.01-4.63c.56-.21 1.05.13.83.83z"/>
+  </svg>
+);
+
+const AIWorkspaceIcon = () => (
+  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--primary)" strokeWidth="2">
+    <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+    <path d="M12 12L2.5 7.5"/>
+    <path d="M12 12v10"/>
   </svg>
 );
 
 const StripeIcon = () => (
-  <svg viewBox="0 0 24 24" width="32" height="32" fill="#635bff">
-    <path fillRule="evenodd" clipRule="evenodd" d="M24 12c0 6.627-5.373 12-12 12S0 18.627 0 12 5.373 0 12 0s12 5.373 12 12zM11.696 15.65c-2.31 0-3.602-1.002-3.602-2.585 0-1.731 1.458-2.657 4.093-2.657 1.055 0 1.954.185 2.502.435v-1.11c0-1.215-1.055-1.874-2.674-1.874-1.344 0-2.519.382-3.324.962l-.766-1.875c1.161-.738 2.876-1.147 4.512-1.147 3.011 0 4.67 1.45 4.67 3.864v5.617h-2.19v-1.41a4.237 4.237 0 0 1-3.221 1.78zm.514-1.86c1.109 0 2.059-.514 2.495-1.279v-1.2c-.528-.224-1.32-.395-2.257-.395-1.439 0-2.23.448-2.23 1.253 0 .738.646 1.621 1.992 1.621z"/>
+  <svg viewBox="0 0 24 24" width="32" height="32" fill="#635BFF">
+    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C17.702.757 15.11 0 12.193 0 6.643 0 2.923 2.915 2.923 7.747c0 7.42 10.22 6.277 10.22 9.508 0 .963-.829 1.542-2.168 1.542-2.61 0-5.637-1.192-7.51-2.185l-.946 5.676C4.372 23.366 7.399 24 10.748 24c5.967 0 9.873-2.88 9.873-7.854 0-7.868-10.245-6.525-10.245-9.696z"/>
   </svg>
 );
 
@@ -55,7 +57,7 @@ interface IntegrationDef {
   tags?: string[];
 }
 
-const ALL_INTEGRATIONS: IntegrationDef[] = [
+const integrationsData: IntegrationDef[] = [
   {
     id: 'whatsapp',
     name: 'WhatsApp Cloud API',
@@ -68,58 +70,62 @@ const ALL_INTEGRATIONS: IntegrationDef[] = [
   {
     id: 'instagram',
     name: 'Instagram Direct',
-    description: 'Reply to Instagram DMs and story mentions directly from your CRM inbox.',
+    description: 'Manage customer Instagram DMs directly from OmniCRM unified inbox.',
     icon: <InstagramIcon />,
     category: 'messaging',
     status: 'available',
-    tags: ['Social']
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI (ChatGPT)',
-    description: 'Empower your chatbot with advanced AI to auto-reply to customers intelligently.',
-    icon: <OpenAIIcon />,
-    category: 'ai',
-    status: 'coming_soon',
-    tags: ['AI']
+    tags: ['Popular', 'Messaging']
   },
   {
     id: 'telegram',
     name: 'Telegram Bot',
-    description: 'Connect a Telegram bot to handle customer inquiries seamlessly.',
+    description: 'Connect Telegram bot for customer support and automated broadcasts.',
     icon: <TelegramIcon />,
     category: 'messaging',
     status: 'coming_soon',
     tags: ['Messaging']
   },
   {
+    id: 'openai',
+    name: 'AI Auto-Responder',
+    description: 'Deploy AI agents trained on your business data to handle routine inquiries.',
+    icon: <AIWorkspaceIcon />,
+    category: 'ai',
+    status: 'coming_soon',
+    tags: ['AI']
+  },
+  {
     id: 'stripe',
     name: 'Stripe Payments',
-    description: 'Generate payment links and collect payments directly within chats.',
+    description: 'Accept payments and send invoices directly inside customer chat windows.',
     icon: <StripeIcon />,
     category: 'payments',
     status: 'coming_soon',
-    tags: ['Finance']
+    tags: ['Payments']
   }
 ];
 
 export default function IntegrationsPage() {
+  const [integrations, setIntegrations] = useState<IntegrationDef[]>(integrationsData);
+  const [channels, setChannels] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState<'all' | 'messaging' | 'ai' | 'payments'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [channels, setChannels] = useState<any[]>([]);
-  const [integrations, setIntegrations] = useState<IntegrationDef[]>(ALL_INTEGRATIONS);
-  
-  // Connect Modal State
-  const [showConnectModal, setShowConnectModal] = useState(false);
   const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
-  
-  // Facebook SDK Load
+
+  const [discoveredNumbers, setDiscoveredNumbers] = useState<any[]>([]);
+  const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
+  const [fbToken, setFbToken] = useState<string>('');
+
   useEffect(() => {
-    // Check if FB SDK is already loaded
+    // Load Meta Facebook SDK
+    // @ts-ignore
+    if (window.FB) return;
     if (document.getElementById('facebook-jssdk')) return;
 
-    // Load the SDK asynchronously
     const script = document.createElement('script');
     script.id = 'facebook-jssdk';
     script.src = "https://connect.facebook.net/en_US/sdk.js";
@@ -140,14 +146,36 @@ export default function IntegrationsPage() {
     document.body.appendChild(script);
   }, []);
 
-  // We don't need manual state inputs anymore since we automate
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadingText, setLoadingText] = useState('');
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const userEmail = user?.email || '';
+      fetch(`${getApiUrl()}/api/channels?user_email=${encodeURIComponent(userEmail)}`, {
+        headers: { 'X-User-Email': userEmail }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.data) {
+            setChannels(data.data);
+            setIntegrations(prev => prev.map(int => {
+              const isConnected = data.data.some((ch: any) => ch.type === int.id && ch.status === 'active');
+              if (isConnected) {
+                return { ...int, status: 'connected' as const };
+              }
+              return { ...int, status: int.status === 'connected' ? 'available' as const : int.status };
+            }));
+          }
+        })
+        .catch(err => console.error('Failed to fetch channels:', err));
+    });
+  }, []);
 
   const handleConnectClick = (id: string) => {
     setConnectingId(id);
     setShowConnectModal(true);
     setLoadingText('');
+    setDiscoveredNumbers([]);
+    setSelectedPhoneId('');
+    setFbToken('');
   };
 
   const submitConnection = async (token: string, externalId?: string, pageId?: string, pageToken?: string) => {
@@ -195,7 +223,7 @@ export default function IntegrationsPage() {
 
   const handleFacebookLogin = () => {
     // @ts-ignore
-    if (!window.FB) return alert("Facebook SDK is still loading or failed to load. Please refresh the page and try again.");
+    if (!window.FB) return alert("Facebook SDK is still loading. Please refresh the page and try again.");
     
     setIsSubmitting(true);
     setLoadingText('Awaiting Facebook Login...');
@@ -204,9 +232,35 @@ export default function IntegrationsPage() {
     window.FB.login((response: any) => {
       if (response.authResponse) {
         const token = response.authResponse.accessToken;
-        setLoadingText('Connecting channel to your workspace...');
-        // Submit token directly to backend server for automatic discovery
-        submitConnection(token);
+        setFbToken(token);
+
+        if (connectingId === 'whatsapp') {
+          setLoadingText('Discovering WhatsApp Business numbers...');
+          fetch(`${getApiUrl()}/api/channels/whatsapp/discover-numbers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ access_token: token })
+          })
+            .then(r => r.json())
+            .then(d => {
+              const numbers = d.numbers || [];
+              if (numbers.length > 1) {
+                setDiscoveredNumbers(numbers);
+                setSelectedPhoneId(numbers[0].phone_number_id);
+                setIsSubmitting(false);
+                setLoadingText('');
+              } else if (numbers.length === 1) {
+                submitConnection(token, numbers[0].phone_number_id);
+              } else {
+                submitConnection(token);
+              }
+            })
+            .catch(() => {
+              submitConnection(token);
+            });
+        } else {
+          submitConnection(token);
+        }
       } else {
         console.log('User cancelled login or did not fully authorize.');
         setIsSubmitting(false);
@@ -251,29 +305,6 @@ export default function IntegrationsPage() {
       setIsSyncing(null);
     }
   };
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      const userEmail = user?.email || '';
-      fetch(`${getApiUrl()}/api/channels?user_email=${encodeURIComponent(userEmail)}`, {
-        headers: { 'X-User-Email': userEmail }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.data) {
-            setChannels(data.data);
-            setIntegrations(prev => prev.map(int => {
-              const isConnected = data.data.some((ch: any) => ch.type === int.id && ch.status === 'active');
-              if (isConnected) {
-                return { ...int, status: 'connected' as const };
-              }
-              return { ...int, status: int.status === 'connected' ? 'available' as const : int.status };
-            }));
-          }
-        })
-        .catch(err => console.error('Failed to fetch channels:', err));
-    });
-  }, []);
 
   const filteredIntegrations = integrations.filter(int => {
     const matchesCategory = activeCategory === 'all' || int.category === activeCategory;
@@ -438,51 +469,114 @@ export default function IntegrationsPage() {
       {/* Connect Modal */}
       {showConnectModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: 'var(--bg-1)', padding: '2rem', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 450, border: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Connect {connectingId === 'whatsapp' ? 'WhatsApp Meta API' : 'Instagram API'}</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>Authorize your Meta account to connect this channel automatically.</p>
-            <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.25rem' }}>Why we need these permissions:</strong>
-              We require <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>whatsapp_business_management</code> and <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>instagram_manage_messages</code> to allow you to read and reply to customer conversations directly from your OmniCRM inbox. We never post on your behalf.
-            </div>
-            
-            {/* 1-Click Facebook Login Button */}
-            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-              <button onClick={handleFacebookLogin} disabled={isSubmitting} style={{ 
-                background: isSubmitting ? '#a0c3ff' : '#1877F2', 
-                color: 'white', 
-                border: 'none', 
-                padding: '12px 24px', 
-                borderRadius: '8px', 
-                fontWeight: 700, 
-                fontSize: '1rem', 
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: '100%',
-                justifyContent: 'center',
-                transition: 'background 0.2s'
-              }}>
-                {isSubmitting ? (
-                  <svg className="animate-spin" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
-                    <path d="M12 2a10 10 0 0 1 10 10"></path>
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                  </svg>
-                )}
-                {isSubmitting ? 'Connecting...' : 'Log in with Facebook'}
-              </button>
-              
-              {loadingText && (
-                <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
-                  {loadingText}
+          <div style={{ background: 'var(--bg-1)', padding: '2rem', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 480, border: '1px solid var(--border)' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+              Connect {connectingId === 'whatsapp' ? 'WhatsApp Meta API' : 'Instagram API'}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Authorize your Meta account to connect this channel automatically.
+            </p>
+
+            {discoveredNumbers.length > 0 ? (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                  Pilih Nomor WhatsApp Business Yang Ingin Dihubungkan:
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: 220, overflowY: 'auto' }}>
+                  {discoveredNumbers.map(n => (
+                    <div 
+                      key={n.phone_number_id}
+                      onClick={() => setSelectedPhoneId(n.phone_number_id)}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '2px solid',
+                        borderColor: selectedPhoneId === n.phone_number_id ? 'var(--primary)' : 'var(--border)',
+                        background: selectedPhoneId === n.phone_number_id ? 'var(--primary-light)' : 'var(--bg-2)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{n.verified_name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{n.display_phone_number}</div>
+                      </div>
+                      <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {selectedPhoneId === n.phone_number_id && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)' }} />}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+
+                <button
+                  type="button"
+                  onClick={() => submitConnection(fbToken, selectedPhoneId)}
+                  disabled={isSubmitting || !selectedPhoneId}
+                  style={{
+                    marginTop: '1.25rem',
+                    width: '100%',
+                    padding: '12px',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: (isSubmitting || !selectedPhoneId) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isSubmitting ? 'Connecting Channel...' : 'Hubungkan Nomor Terpilih'}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.25rem' }}>Why we need these permissions:</strong>
+                  We require <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>whatsapp_business_management</code> and <code style={{ color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 4px', borderRadius: '4px' }}>instagram_manage_messages</code> to allow you to read and reply to customer conversations. We never post on your behalf.
+                </div>
+                
+                {/* 1-Click Facebook Login Button */}
+                <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                  <button onClick={handleFacebookLogin} disabled={isSubmitting} style={{ 
+                    background: isSubmitting ? '#a0c3ff' : '#1877F2', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '12px 24px', 
+                    borderRadius: '8px', 
+                    fontWeight: 700, 
+                    fontSize: '1rem', 
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    justifyContent: 'center',
+                    transition: 'background 0.2s'
+                  }}>
+                    {isSubmitting ? (
+                      <svg className="animate-spin" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+                        <path d="M12 2a10 10 0 0 1 10 10"></path>
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    )}
+                    {isSubmitting ? 'Connecting...' : 'Log in with Facebook'}
+                  </button>
+                  
+                  {loadingText && (
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                      {loadingText}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
               <button onClick={() => setShowConnectModal(false)} disabled={isSubmitting} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '0.85rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>

@@ -762,6 +762,50 @@ async def get_dashboard_stats(request: Request):
 
 # --- CHANNEL CONNECTION API ---
 
+@app.post("/api/channels/whatsapp/discover-numbers")
+async def discover_whatsapp_numbers(request: Request):
+    """Fetch all WhatsApp Business Phone Numbers linked to the user's Meta account"""
+    data = await request.json()
+    access_token = data.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="Access token is required")
+
+    import httpx
+    phone_numbers = []
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Try client_whatsapp_business_accounts
+            res1 = await client.get(f"https://graph.facebook.com/v18.0/me/client_whatsapp_business_accounts?fields=id,name,phone_numbers{{id,display_phone_number,verified_name}}&access_token={access_token}")
+            if res1.status_code == 200:
+                for waba in res1.json().get('data', []):
+                    waba_name = waba.get('name', 'WhatsApp Business Account')
+                    for pn in waba.get('phone_numbers', {}).get('data', []):
+                        phone_numbers.append({
+                            'phone_number_id': pn['id'],
+                            'display_phone_number': pn.get('display_phone_number', pn['id']),
+                            'verified_name': pn.get('verified_name') or waba_name,
+                            'waba_id': waba.get('id')
+                        })
+
+            # 2. Try owned_whatsapp_business_accounts
+            res2 = await client.get(f"https://graph.facebook.com/v18.0/me/businesses?fields=owned_whatsapp_business_accounts{{id,name,phone_numbers{{id,display_phone_number,verified_name}}}}&access_token={access_token}")
+            if res2.status_code == 200:
+                for biz in res2.json().get('data', []):
+                    for waba in biz.get('owned_whatsapp_business_accounts', {}).get('data', []):
+                        waba_name = waba.get('name', 'WhatsApp Business Account')
+                        for pn in waba.get('phone_numbers', {}).get('data', []):
+                            if not any(p['phone_number_id'] == pn['id'] for p in phone_numbers):
+                                phone_numbers.append({
+                                    'phone_number_id': pn['id'],
+                                    'display_phone_number': pn.get('display_phone_number', pn['id']),
+                                    'verified_name': pn.get('verified_name') or waba_name,
+                                    'waba_id': waba.get('id')
+                                })
+    except Exception as e:
+        logger.error(f"Error discovering WhatsApp phone numbers: {e}")
+
+    return {"status": "success", "numbers": phone_numbers}
+
 @app.post("/api/channels/whatsapp/connect")
 async def connect_whatsapp_channel(request: Request):
     data = await request.json()
