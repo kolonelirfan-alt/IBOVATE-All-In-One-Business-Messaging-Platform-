@@ -233,11 +233,24 @@ async def send_message(request: Request):
                         "recipient": {"id": recipient_id},
                         "message": {"text": content}
                     }
-                    meta_res = await client.post(
-                        f"https://graph.facebook.com/v18.0/{meta_endpoint_id}/messages",
-                        headers=headers,
-                        json=payload
-                    )
+                    if access_token.startswith("IG"):
+                        meta_res = await client.post(
+                            "https://graph.instagram.com/me/messages",
+                            headers=headers,
+                            json=payload
+                        )
+                    else:
+                        meta_res = await client.post(
+                            f"https://graph.facebook.com/v18.0/{meta_endpoint_id}/messages",
+                            headers=headers,
+                            json=payload
+                        )
+                        if meta_res.status_code == 400:
+                            meta_res = await client.post(
+                                "https://graph.instagram.com/me/messages",
+                                headers=headers,
+                                json=payload
+                            )
                 else: # Default to whatsapp
                     payload = {
                         "messaging_product": "whatsapp",
