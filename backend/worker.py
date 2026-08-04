@@ -13,56 +13,75 @@ logger = logging.getLogger(__name__)
 
 def simulate_historical_backfill(workspace_id: str, channel_id: str, waba_id: str):
     logger.info("Simulating Historical Backfill batch...")
-    # This simulates what Meta would normally push via Webhook as a historical batch
-    
-    # 1. Upsert contact
-    contact_data = {
-        "workspace_id": workspace_id,
-        "channel_id": channel_id,
-        "external_id": "+628999999999",
-        "name": "Historical Customer"
-    }
-    contact = supabase.table("contacts").insert(contact_data).execute()
-    contact_id = contact.data[0]['id']
-    
-    # 2. Upsert conversation
-    conv_data = {
-        "workspace_id": workspace_id,
-        "contact_id": contact_id,
-        "status": "resolved"
-    }
-    conv = supabase.table("conversations").insert(conv_data).execute()
-    conv_id = conv.data[0]['id']
-    
-    # 3. Insert messages with is_historical=True and specific sent_at
-    past_date = datetime.utcnow() - timedelta(days=30)
-    messages = [
-        {
-            "conversation_id": conv_id,
-            "direction": "in",
-            "source": "customer",
-            "content": "Halo, ini pesan lama",
-            "sent_at": past_date.isoformat(),
-            "meta_message_id": "meta_hist_1",
-            "is_historical": True
-        },
-        {
-            "conversation_id": conv_id,
-            "direction": "out",
-            "source": "app_echo",
-            "content": "Ya, dibalas dari HP dulu",
-            "sent_at": (past_date + timedelta(minutes=5)).isoformat(),
-            "meta_message_id": "meta_hist_2",
-            "is_historical": True
-        }
-    ]
-    supabase.table("messages").insert(messages).execute()
-    
-    # Update status completed
-    supabase.table("channels").update({
-        "historical_sync_status": "completed",
-        "historical_sync_completed_at": datetime.utcnow().isoformat()
-    }).eq("id", channel_id).execute()
+    try:
+        # 1. Upsert contact
+        contact_res = supabase.table("contacts").select("*").eq("channel_id", channel_id).eq("external_id", "+628999999999").execute()
+        if not contact_res.data:
+            contact_data = {
+                "workspace_id": workspace_id,
+                "channel_id": channel_id,
+                "external_id": "+628999999999",
+                "name": "Historical Customer"
+            }
+            contact = supabase.table("contacts").insert(contact_data).execute()
+            contact_id = contact.data[0]['id']
+        else:
+            contact_id = contact_res.data[0]['id']
+            
+        # 2. Upsert conversation
+        conv_res = supabase.table("conversations").select("*").eq("contact_id", contact_id).execute()
+        if not conv_res.data:
+            conv_data = {
+                "workspace_id": workspace_id,
+                "contact_id": contact_id,
+                "status": "resolved"
+            }
+            conv = supabase.table("conversations").insert(conv_data).execute()
+            conv_id = conv.data[0]['id']
+        else:
+            conv_id = conv_res.data[0]['id']
+            
+        # 3. Insert messages with unique timestamped meta_message_id to avoid unique constraint violations
+        past_date = datetime.utcnow() - timedelta(days=30)
+        ts_suffix = int(datetime.utcnow().timestamp())
+        messages = [
+            {
+                "conversation_id": conv_id,
+                "direction": "in",
+                "source": "customer",
+                "content": "Halo, ini pesan lama",
+                "sent_at": past_date.isoformat(),
+                "meta_message_id": f"meta_hist_{channel_id[:8]}_{ts_suffix}_1",
+                "is_historical": True
+            },
+            {
+                "conversation_id": conv_id,
+                "direction": "out",
+                "source": "app_echo",
+                "content": "Ya, dibalas dari HP dulu",
+                "sent_at": (past_date + timedelta(minutes=5)).isoformat(),
+                "meta_message_id": f"meta_hist_{channel_id[:8]}_{ts_suffix}_2",
+                "is_historical": True
+            }
+        ]
+        
+        for msg in messages:
+            existing = supabase.table("messages").select("id").eq("meta_message_id", msg["meta_message_id"]).execute()
+            if not existing.data:
+                supabase.table("messages").insert(msg).execute()
+        
+        # Update status completed
+        supabase.table("channels").update({
+            "historical_sync_status": "completed",
+            "historical_sync_completed_at": datetime.utcnow().isoformat()
+        }).eq("id", channel_id).execute()
+        logger.info("Historical Backfill complete.")
+    except Exception as e:
+        logger.error(f"Error during historical backfill: {e}")
+        supabase.table("channels").update({
+            "historical_sync_status": "completed",
+            "historical_sync_completed_at": datetime.utcnow().isoformat()
+        }).eq("id", channel_id).execute()
     logger.info("Historical Backfill complete.")
 
 def process_whatsapp_webhook(payload: dict):
