@@ -212,13 +212,35 @@ def process_whatsapp_webhook(payload: dict):
                     content = ""
                     if message_type == "text":
                         content = message_info.get("text", {}).get("body", "")
+                    elif message_type == "image":
+                        content = message_info.get("image", {}).get("caption") or "[Gambar]"
+                    elif message_type in ("audio", "voice"):
+                        content = "[Pesan Suara]"
+                    elif message_type == "video":
+                        content = message_info.get("video", {}).get("caption") or "[Video]"
+                    elif message_type == "document":
+                        content = message_info.get("document", {}).get("caption") or "[Dokumen]"
+                    elif message_type == "sticker":
+                        content = "[Stiker]"
+                    elif message_type == "location":
+                        content = "[Lokasi]"
+                    elif message_type == "button":
+                        content = message_info.get("button", {}).get("text") or "[Tombol]"
+                    elif message_type == "interactive":
+                        btn_title = message_info.get("interactive", {}).get("button_reply", {}).get("title")
+                        content = btn_title or "[Respon Interaktif]"
+                    elif message_type == "reaction":
+                        content = message_info.get("reaction", {}).get("emoji") or "[Reaksi]"
+                    else:
+                        content = message_info.get("text", {}).get("body", "") or f"[{message_type.capitalize()}]"
                     
                     # Get contact info (Meta provides it in "contacts" array)
                     contacts_info = value.get("contacts", [])
                     contact_name = external_contact_id
                     for c in contacts_info:
-                        if c.get("wa_id") == external_contact_id:
-                            contact_name = c.get("profile", {}).get("name", external_contact_id)
+                        c_wa_id = str(c.get("wa_id", ""))
+                        if c_wa_id and (c_wa_id == str(external_contact_id) or c_wa_id in str(external_contact_id) or str(external_contact_id) in c_wa_id):
+                            contact_name = c.get("profile", {}).get("name") or external_contact_id
                             break
                             
                     # 1. Upsert Contact
