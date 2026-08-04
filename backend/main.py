@@ -45,6 +45,7 @@ def verify_meta_signature(request: Request, payload: bytes):
         # raise HTTPException(status_code=403, detail="Signature mismatch")
 
 @app.get("/webhook/whatsapp")
+@app.get("/api/webhook/whatsapp")
 async def verify_whatsapp_webhook(
     hub_mode: str = Query(None, alias="hub.mode"),
     hub_challenge: str = Query(None, alias="hub.challenge"),
@@ -55,6 +56,7 @@ async def verify_whatsapp_webhook(
     raise HTTPException(status_code=403, detail="Verification failed")
 
 @app.post("/webhook/whatsapp")
+@app.post("/api/webhook/whatsapp")
 async def handle_whatsapp_webhook(request: Request):
     payload = await request.body()
     verify_meta_signature(request, payload)
