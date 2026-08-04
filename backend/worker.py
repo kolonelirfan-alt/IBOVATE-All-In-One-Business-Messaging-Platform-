@@ -172,11 +172,11 @@ def process_whatsapp_webhook(payload: dict):
                     channel = channel_res.data[0]
             
             if not channel:
-                active_res = supabase.table("channels").select("*").eq("type", "whatsapp").eq("status", "active").limit(1).execute()
+                active_res = supabase.table("channels").select("*").eq("type", "whatsapp").eq("status", "active").order("created_at", desc=True).limit(1).execute()
                 if active_res.data:
                     channel = active_res.data[0]
                 else:
-                    all_res = supabase.table("channels").select("*").eq("type", "whatsapp").limit(1).execute()
+                    all_res = supabase.table("channels").select("*").eq("type", "whatsapp").order("created_at", desc=True).limit(1).execute()
                     if all_res.data:
                         channel = all_res.data[0]
 
