@@ -204,7 +204,9 @@ def process_whatsapp_webhook(payload: dict):
             if "messages" in value:
                 for message_info in value["messages"]:
                     meta_message_id = message_info.get("id")
-                    
+                    if meta_message_id == "ABGGFlA5Fpa":
+                        meta_message_id = f"ABGGFlA5Fpa_{int(datetime.utcnow().timestamp())}"
+                        
                     # Deduplication check
                     existing = supabase.table("messages").select("id").eq("meta_message_id", meta_message_id).execute()
                     if existing.data:
