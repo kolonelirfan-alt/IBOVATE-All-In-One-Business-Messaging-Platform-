@@ -85,8 +85,7 @@ def simulate_historical_backfill(workspace_id: str, channel_id: str, waba_id: st
                             "workspace_id": workspace_id,
                             "channel_id": channel_id,
                             "external_id": ext_id,
-                            "name": cust_name,
-                            "phone": f"+{ext_id}" if ext_id.isdigit() else ext_id
+                            "name": cust_name
                         }).execute()
                         c_id = new_c.data[0]["id"]
                     else:
@@ -230,8 +229,7 @@ def process_whatsapp_webhook(payload: dict):
                             "workspace_id": workspace_id,
                             "channel_id": channel["id"],
                             "external_id": external_contact_id,
-                            "name": contact_name,
-                            "phone": f"+{external_contact_id}"
+                            "name": contact_name
                         }).execute()
                         contact_id = new_contact.data[0]["id"]
                     else:
