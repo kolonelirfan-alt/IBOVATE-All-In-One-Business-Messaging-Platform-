@@ -97,6 +97,8 @@ export default function IntegrationsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
+  const [isTogglingCoexistence, setIsTogglingCoexistence] = useState(false);
+  const [isSyncingCoexistence, setIsSyncingCoexistence] = useState(false);
 
   const [discoveredNumbers, setDiscoveredNumbers] = useState<any[]>([]);
   const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
@@ -288,6 +290,49 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleToggleCoexistence = async (channelId: string, currentStatus: boolean) => {
+    try {
+      setIsTogglingCoexistence(true);
+      const res = await fetch(`${getApiUrl()}/api/channels/${channelId}/coexistence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !currentStatus })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setChannels(prev => prev.map(ch => ch.id === channelId ? { ...ch, coexistence_enabled: !currentStatus } : ch));
+      } else {
+        alert(data.detail || 'Failed to update Coexistence status');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating Coexistence settings');
+    } finally {
+      setIsTogglingCoexistence(false);
+    }
+  };
+
+  const handleSyncCoexistence = async (channelId: string) => {
+    try {
+      setIsSyncingCoexistence(true);
+      const res = await fetch(`${getApiUrl()}/api/channels/${channelId}/sync-coexistence`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        alert('Historical backfill sync complete! Previous WhatsApp messages have been synced.');
+        setChannels(prev => prev.map(ch => ch.id === channelId ? { ...ch, historical_sync_status: 'completed' } : ch));
+      } else {
+        alert(data.detail || 'Failed to sync Coexistence chats');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error syncing Coexistence chats');
+    } finally {
+      setIsSyncingCoexistence(false);
+    }
+  };
+
   const filteredIntegrations = integrations.filter(int => {
     const matchesCategory = activeCategory === 'all' || int.category === activeCategory;
     const matchesSearch = int.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -401,9 +446,66 @@ export default function IntegrationsPage() {
               </div>
               
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{int.name}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '1.5rem', flex: 1 }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '1rem', flex: 1 }}>
                 {int.description}
               </p>
+
+              {int.id === 'whatsapp' && int.status === 'connected' && (() => {
+                const waChannel = channels.find(c => c.type === 'whatsapp');
+                const coexistenceEnabled = waChannel?.coexistence_enabled || false;
+                const isSyncingHist = isSyncingCoexistence || waChannel?.historical_sync_status === 'syncing';
+                return (
+                  <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'var(--bg-1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        📱 WhatsApp Coexistence
+                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: coexistenceEnabled ? '#dcfce7' : '#e5e7eb', color: coexistenceEnabled ? '#166534' : '#374151', fontWeight: 700 }}>
+                          {coexistenceEnabled ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+                      Gunakan aplikasi WhatsApp Business di HP secara bersamaan dengan dashboard OmniCRM. Pesan balasan dari HP akan otomatis masuk sebagai echo message.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => waChannel && handleToggleCoexistence(waChannel.id, coexistenceEnabled)}
+                        disabled={isTogglingCoexistence || !waChannel}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          borderRadius: 'var(--radius-sm)',
+                          border: 'none',
+                          background: coexistenceEnabled ? '#dc2626' : 'var(--primary)',
+                          color: 'white',
+                          cursor: (isTogglingCoexistence || !waChannel) ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {isTogglingCoexistence ? 'Updating...' : coexistenceEnabled ? 'Matikan Coexistence' : 'Aktifkan Coexistence'}
+                      </button>
+                      {coexistenceEnabled && (
+                        <button
+                          onClick={() => waChannel && handleSyncCoexistence(waChannel.id)}
+                          disabled={isSyncingHist || !waChannel}
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--primary)',
+                            background: 'var(--primary-light)',
+                            color: 'var(--primary)',
+                            cursor: (isSyncingHist || !waChannel) ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {isSyncingHist ? 'Syncing...' : 'Sinkronkan Pesan Lama'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>

@@ -102,33 +102,43 @@ def process_whatsapp_webhook(payload: dict):
                         timestamp = message_info.get("timestamp")
                         message_type = message_info.get("type", "text")
                         
+                        # Coexistence Echo detection (messages sent from WhatsApp Business App on phone)
+                        is_echo = message_info.get("is_echo", False) or (
+                            from_number in [phone_number_id, channel.get("meta_phone_id"), channel.get("external_account_id")]
+                        )
+                        direction = "out" if is_echo else "in"
+                        source = "app_echo" if is_echo else "customer"
+                        
+                        # For echo message, contact is recipient (to), otherwise sender (from)
+                        external_contact_id = message_info.get("to", from_number) if is_echo else from_number
+                        
                         content = ""
                         if message_type == "text":
                             content = message_info.get("text", {}).get("body", "")
                         
                         # Get contact info (Meta provides it in "contacts" array)
                         contacts_info = value.get("contacts", [])
-                        contact_name = from_number
+                        contact_name = external_contact_id
                         for c in contacts_info:
-                            if c.get("wa_id") == from_number:
-                                contact_name = c.get("profile", {}).get("name", from_number)
+                            if c.get("wa_id") == external_contact_id:
+                                contact_name = c.get("profile", {}).get("name", external_contact_id)
                                 break
                                 
                         # 1. Upsert Contact
-                        contact_res = supabase.table("contacts").select("*").eq("channel_id", channel["id"]).eq("external_id", from_number).execute()
+                        contact_res = supabase.table("contacts").select("*").eq("channel_id", channel["id"]).eq("external_id", external_contact_id).execute()
                         if not contact_res.data:
                             new_contact = supabase.table("contacts").insert({
                                 "workspace_id": workspace_id,
                                 "channel_id": channel["id"],
-                                "external_id": from_number,
+                                "external_id": external_contact_id,
                                 "name": contact_name,
-                                "phone": f"+{from_number}"
+                                "phone": f"+{external_contact_id}"
                             }).execute()
                             contact_id = new_contact.data[0]["id"]
                         else:
                             contact_id = contact_res.data[0]["id"]
                             # Update name if previously saved as just phone number
-                            if contact_res.data[0].get('name') == from_number and contact_name != from_number:
+                            if contact_res.data[0].get('name') == external_contact_id and contact_name != external_contact_id:
                                 supabase.table("contacts").update({"name": contact_name}).eq("id", contact_id).execute()
                             
                         # 2. Upsert Conversation
@@ -151,8 +161,8 @@ def process_whatsapp_webhook(payload: dict):
                         
                         supabase.table("messages").insert({
                             "conversation_id": conv_id,
-                            "direction": "in",
-                            "source": "customer",
+                            "direction": direction,
+                            "source": source,
                             "content": content,
                             "meta_message_id": meta_message_id,
                             "sent_at": sent_at

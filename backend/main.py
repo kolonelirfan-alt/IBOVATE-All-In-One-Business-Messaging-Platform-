@@ -607,6 +607,57 @@ async def delete_channel(channel_id: str):
     supabase_admin.table('channels').update({"status": "disconnected"}).eq('id', channel_id).execute()
     return {"status": "success"}
 
+@app.post("/api/channels/{channel_id}/coexistence")
+async def toggle_whatsapp_coexistence(channel_id: str, request: Request):
+    """Toggle WhatsApp Coexistence mode on/off for a channel"""
+    data = await request.json()
+    enabled = data.get("enabled", True)
+    
+    channel_res = supabase_admin.table('channels').select('*').eq('id', channel_id).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel = channel_res.data[0]
+    if channel.get('type') != 'whatsapp':
+        raise HTTPException(status_code=400, detail="Coexistence is only available for WhatsApp Cloud API channels")
+        
+    update_data = {"coexistence_enabled": enabled}
+    if enabled and channel.get('historical_sync_status') == 'not_started':
+        update_data["historical_sync_status"] = "pending"
+        
+    res = supabase_admin.table('channels').update(update_data).eq('id', channel_id).execute()
+    return {"status": "success", "coexistence_enabled": enabled, "channel": res.data[0] if res.data else None}
+
+@app.post("/api/channels/{channel_id}/sync-coexistence")
+async def sync_whatsapp_coexistence(channel_id: str):
+    """Trigger WhatsApp Coexistence historical chat backfill"""
+    channel_res = supabase_admin.table('channels').select('*').eq('id', channel_id).execute()
+    if not channel_res.data:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    channel = channel_res.data[0]
+    if channel.get('type') != 'whatsapp':
+        raise HTTPException(status_code=400, detail="Only WhatsApp channels support Coexistence backfill")
+        
+    workspace_id = channel.get('workspace_id')
+    waba_id = channel.get('external_account_id', '')
+    
+    supabase_admin.table('channels').update({
+        "historical_sync_status": "syncing",
+        "historical_sync_started_at": datetime.utcnow().isoformat()
+    }).eq('id', channel_id).execute()
+    
+    try:
+        worker.simulate_historical_backfill(workspace_id, channel_id, waba_id)
+        return {"status": "success", "message": "WhatsApp Coexistence backfill sync completed"}
+    except Exception as e:
+        logger.error(f"Failed Coexistence backfill: {e}")
+        supabase_admin.table('channels').update({
+            "historical_sync_status": "failed"
+        }).eq('id', channel_id).execute()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/channels/{channel_id}/sync")
 async def sync_channel(channel_id: str):
     """Sync historical conversations for a channel"""
