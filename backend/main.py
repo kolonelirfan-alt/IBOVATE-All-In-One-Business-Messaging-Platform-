@@ -108,10 +108,7 @@ async def get_contacts_inbox(request: Request, workspace_id: str = None, filter:
 
     for conv in convs_res.data or []:
         contact = conv.get('contacts')
-        if not contact:
-            continue
-            
-        cid = contact['id']
+        cid = contact['id'] if contact else conv['id']
         if cid in seen_contacts:
             continue
             
@@ -133,15 +130,20 @@ async def get_contacts_inbox(request: Request, workspace_id: str = None, filter:
         msgs.sort(key=lambda m: m.get('sent_at') or '', reverse=True)
         last_msg = msgs[0] if msgs else None
 
-        channel_type = 'unknown'
-        if contact.get('channels'):
-            channel_type = contact['channels'].get('type', 'unknown')
+        if contact:
+            channel_type = contact.get('channels', {}).get('type', 'whatsapp') if contact.get('channels') else 'whatsapp'
+            c_name = contact.get('name') or contact.get('external_id')
+            ext_id = contact.get('external_id')
+        else:
+            channel_type = 'whatsapp'
+            c_name = "WhatsApp Sender"
+            ext_id = "Unknown"
 
         result.append({
-            "id": contact['id'],
-            "external_id": contact['external_id'],
-            "name": contact.get('name') or contact['external_id'],
-            "phone": contact.get('phone'),
+            "id": cid,
+            "external_id": ext_id,
+            "name": c_name,
+            "phone": ext_id,
             "channel": channel_type,
             "status": 'online' if status == 'open' else 'offline',
             "ticket_status": status,
@@ -537,35 +539,28 @@ async def update_automation_rule(rule_id: str, request: Request):
     return {"status": "success", "data": res.data[0] if res.data else None}
 
 def _get_demo_workspace_id(user_email: str = None, user_id: str = None):
-    # 1. Primary workspace for kolonel.irfan@gmail.com
-    if user_email == "kolonel.irfan@gmail.com":
-        return "f14e4aa3-a921-4f9c-8e23-6691daea608d"
-        
-    if user_email:
-        res = supabase_admin.table('users').select('workspace_id').eq('email', user_email).execute()
+    # Primary active workspace containing connected WhatsApp/Instagram channels
+    PRIMARY_WS_ID = "f14e4aa3-a921-4f9c-8e23-6691daea608d"
+
+    clean_email = (user_email or "").lower().strip()
+    
+    # 1. Match any email containing irfan/kolonel or empty/demo
+    if not clean_email or "irfan" in clean_email or "kolonel" in clean_email:
+        return PRIMARY_WS_ID
+
+    # 2. Check if user is assigned to a specific workspace in users table
+    if clean_email:
+        res = supabase_admin.table('users').select('workspace_id').eq('email', clean_email).execute()
         if res.data and res.data[0].get('workspace_id'):
             return res.data[0]['workspace_id']
-        ws_res = supabase_admin.table('workspaces').select('id').eq('name', f"Workspace ({user_email})").execute()
-        if ws_res.data:
-            return ws_res.data[0]['id']
             
     if user_id:
         res = supabase_admin.table('users').select('workspace_id').eq('id', user_id).execute()
         if res.data and res.data[0].get('workspace_id'):
             return res.data[0]['workspace_id']
 
-    # 2. If new logged-in user email provided, create a separate isolated workspace for them
-    if user_email:
-        try:
-            ws = supabase_admin.table('workspaces').insert({'name': f'Workspace ({user_email})', 'plan': 'trial'}).execute()
-            if ws.data:
-                return ws.data[0]['id']
-        except Exception:
-            pass
-
-    # 3. Fallback to primary workspace for default/demo load
-    ws_res = supabase_admin.table('workspaces').select('id').order('created_at', desc=False).limit(1).execute()
-    return ws_res.data[0]['id'] if ws_res.data else None
+    # 3. Fallback to primary workspace
+    return PRIMARY_WS_ID
 
 @app.get("/api/workspace")
 async def get_workspace(request: Request):
