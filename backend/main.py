@@ -352,12 +352,12 @@ def _extract_workspace_id(request: Request) -> str:
 
 @app.get("/api/contacts")
 async def get_contacts(request: Request, q: str = None):
-    """Get all contacts with optional search"""
+    """Get all saved contacts with optional search"""
     ws_id = _extract_workspace_id(request)
     if not ws_id:
         return {"data": []}
     
-    query = supabase_admin.table('contacts').select('id, name, external_id, created_at, channel_id, channels(type)').eq('workspace_id', ws_id)
+    query = supabase_admin.table('contacts').select('id, name, external_id, created_at, channel_id, is_saved, channels(type)').eq('workspace_id', ws_id).eq('is_saved', True)
     if q:
         query = query.ilike('name', f'%{q}%')
     
@@ -391,13 +391,56 @@ async def create_contact(request: Request):
     if not name or not phone:
         raise HTTPException(status_code=400, detail="Name and phone required")
         
-    res = supabase_admin.table('contacts').insert({
-        'workspace_id': ws_id,
-        'name': name,
-        'phone': phone,
-        'external_id': phone,
-    }).execute()
+    existing = supabase_admin.table('contacts').select('*').eq('workspace_id', ws_id).eq('external_id', phone).execute()
+    if existing.data:
+        res = supabase_admin.table('contacts').update({
+            'name': name,
+            'is_saved': True
+        }).eq('id', existing.data[0]['id']).execute()
+    else:
+        res = supabase_admin.table('contacts').insert({
+            'workspace_id': ws_id,
+            'name': name,
+            'external_id': phone,
+            'is_saved': True
+        }).execute()
     return {"status": "success", "data": res.data[0] if res.data else None}
+
+@app.post("/api/contacts/save")
+async def save_contact_info(request: Request):
+    """Save/update contact info from ProfilePanel or Inbox (+ Add Contact)"""
+    data = await request.json()
+    ws_id = _extract_workspace_id(request)
+    if not ws_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    contact_id = data.get('contact_id')
+    external_id = data.get('external_id') or data.get('phone')
+    name = data.get('name')
+    
+    if contact_id:
+        res = supabase_admin.table('contacts').update({
+            'is_saved': True,
+            'name': name if name else None
+        }).eq('id', contact_id).execute()
+        return {"status": "success", "data": res.data[0] if res.data else None}
+    elif external_id:
+        existing = supabase_admin.table('contacts').select('*').eq('workspace_id', ws_id).eq('external_id', external_id).execute()
+        if existing.data:
+            res = supabase_admin.table('contacts').update({
+                'is_saved': True,
+                'name': name if name else existing.data[0].get('name')
+            }).eq('id', existing.data[0]['id']).execute()
+        else:
+            res = supabase_admin.table('contacts').insert({
+                'workspace_id': ws_id,
+                'external_id': external_id,
+                'name': name or external_id,
+                'is_saved': True
+            }).execute()
+        return {"status": "success", "data": res.data[0] if res.data else None}
+    else:
+        raise HTTPException(status_code=400, detail="contact_id or external_id required")
 
 # --- CAMPAIGNS API ---
 
