@@ -215,6 +215,7 @@ export default function GlobalSidebar() {
             {!isCollapsed && (
               <button 
                 onClick={() => {
+                  localStorage.removeItem('is_demo_mode');
                   supabase.auth.signOut().then(() => {
                     window.location.href = '/login';
                   });
