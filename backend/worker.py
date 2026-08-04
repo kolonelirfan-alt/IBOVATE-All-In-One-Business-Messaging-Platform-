@@ -172,13 +172,12 @@ def process_whatsapp_webhook(payload: dict):
                     channel = channel_res.data[0]
             
             if not channel:
-                active_res = supabase.table("channels").select("*").eq("type", "whatsapp").eq("status", "active").order("created_at", desc=True).limit(1).execute()
+                # Fallback: use active WhatsApp channel from PRIMARY workspace
+                PRIMARY_WS = "f14e4aa3-a921-4f9c-8e23-6691daea608d"
+                active_res = supabase.table("channels").select("*").eq("type", "whatsapp").eq("status", "active").eq("workspace_id", PRIMARY_WS).order("created_at", desc=True).limit(1).execute()
                 if active_res.data:
                     channel = active_res.data[0]
-                else:
-                    all_res = supabase.table("channels").select("*").eq("type", "whatsapp").order("created_at", desc=True).limit(1).execute()
-                    if all_res.data:
-                        channel = all_res.data[0]
+                    logger.info(f"Fallback: using primary workspace channel {channel['id']} for test phone_number_id {phone_number_id}")
 
             if not channel:
                 logger.warning(f"Webhook received for unknown phone_number_id: {phone_number_id}")
