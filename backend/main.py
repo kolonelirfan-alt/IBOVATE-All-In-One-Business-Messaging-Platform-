@@ -539,28 +539,44 @@ async def update_automation_rule(rule_id: str, request: Request):
     return {"status": "success", "data": res.data[0] if res.data else None}
 
 def _get_demo_workspace_id(user_email: str = None, user_id: str = None):
-    # Primary active workspace containing connected WhatsApp/Instagram channels
     PRIMARY_WS_ID = "f14e4aa3-a921-4f9c-8e23-6691daea608d"
 
     clean_email = (user_email or "").lower().strip()
     
-    # 1. Match any email containing irfan/kolonel or empty/demo
-    if not clean_email or "irfan" in clean_email or "kolonel" in clean_email:
+    # 1. Primary workspace only for kolonel.irfan@gmail.com
+    if clean_email == "kolonel.irfan@gmail.com":
         return PRIMARY_WS_ID
 
-    # 2. Check if user is assigned to a specific workspace in users table
+    # 2. Check users table for assigned workspace
     if clean_email:
         res = supabase_admin.table('users').select('workspace_id').eq('email', clean_email).execute()
         if res.data and res.data[0].get('workspace_id'):
             return res.data[0]['workspace_id']
-            
+    
     if user_id:
         res = supabase_admin.table('users').select('workspace_id').eq('id', user_id).execute()
         if res.data and res.data[0].get('workspace_id'):
             return res.data[0]['workspace_id']
 
-    # 3. Fallback to primary workspace
-    return PRIMARY_WS_ID
+    # 3. Check if workspace already exists for this email
+    if clean_email:
+        ws_res = supabase_admin.table('workspaces').select('id').eq('name', f"Workspace ({clean_email})").execute()
+        if ws_res.data:
+            return ws_res.data[0]['id']
+        
+        # 4. Create a new isolated workspace for this user
+        try:
+            ws = supabase_admin.table('workspaces').insert({'name': f'Workspace ({clean_email})', 'plan': 'trial'}).execute()
+            if ws.data:
+                return ws.data[0]['id']
+        except Exception:
+            pass
+
+    # 5. No email provided (e.g. demo mode) — use primary workspace
+    if not clean_email:
+        return PRIMARY_WS_ID
+    
+    return None
 
 @app.get("/api/workspace")
 async def get_workspace(request: Request):
