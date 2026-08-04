@@ -11,73 +11,135 @@ logger = logging.getLogger(__name__)
 
 # Removed connect functions as they are handled synchronously in main.py now.
 
+import httpx
+
 def simulate_historical_backfill(workspace_id: str, channel_id: str, waba_id: str):
-    logger.info("Simulating Historical Backfill batch...")
+    logger.info("Executing Real WhatsApp Historical Backfill sync...")
     try:
-        # 1. Upsert contact
-        contact_res = supabase.table("contacts").select("*").eq("channel_id", channel_id).eq("external_id", "+628999999999").execute()
-        if not contact_res.data:
-            contact_data = {
-                "workspace_id": workspace_id,
-                "channel_id": channel_id,
-                "external_id": "+628999999999",
-                "name": "Historical Customer"
-            }
-            contact = supabase.table("contacts").insert(contact_data).execute()
-            contact_id = contact.data[0]['id']
-        else:
-            contact_id = contact_res.data[0]['id']
-            
-        # 2. Upsert conversation
-        conv_res = supabase.table("conversations").select("*").eq("contact_id", contact_id).execute()
-        if not conv_res.data:
-            conv_data = {
-                "workspace_id": workspace_id,
-                "contact_id": contact_id,
-                "status": "resolved"
-            }
-            conv = supabase.table("conversations").insert(conv_data).execute()
-            conv_id = conv.data[0]['id']
-        else:
-            conv_id = conv_res.data[0]['id']
-            
-        # 3. Insert messages with unique timestamped meta_message_id to avoid unique constraint violations
-        past_date = datetime.utcnow() - timedelta(days=30)
-        ts_suffix = int(datetime.utcnow().timestamp())
-        messages = [
-            {
-                "conversation_id": conv_id,
-                "direction": "in",
-                "source": "customer",
-                "content": "Halo, ini pesan lama",
-                "sent_at": past_date.isoformat(),
-                "meta_message_id": f"meta_hist_{channel_id[:8]}_{ts_suffix}_1",
-                "is_historical": True
-            },
-            {
-                "conversation_id": conv_id,
-                "direction": "out",
-                "source": "app_echo",
-                "content": "Ya, dibalas dari HP dulu",
-                "sent_at": (past_date + timedelta(minutes=5)).isoformat(),
-                "meta_message_id": f"meta_hist_{channel_id[:8]}_{ts_suffix}_2",
-                "is_historical": True
-            }
-        ]
-        
-        for msg in messages:
-            existing = supabase.table("messages").select("id").eq("meta_message_id", msg["meta_message_id"]).execute()
-            if not existing.data:
-                supabase.table("messages").insert(msg).execute()
-        
-        # Update status completed
+        # Clean up dummy "Historical Customer" dummy entries from database
+        dummy_contacts = supabase.table("contacts").select("id").eq("channel_id", channel_id).eq("name", "Historical Customer").execute()
+        if dummy_contacts.data:
+            for dc in dummy_contacts.data:
+                dummy_convs = supabase.table("conversations").select("id").eq("contact_id", dc["id"]).execute()
+                for dconv in dummy_convs.data:
+                    supabase.table("messages").delete().eq("conversation_id", dconv["id"]).execute()
+                    supabase.table("conversations").delete().eq("id", dconv["id"]).execute()
+                supabase.table("contacts").delete().eq("id", dc["id"]).execute()
+
+        # Fetch channel credentials
+        ch_res = supabase.table("channels").select("*").eq("id", channel_id).execute()
+        if not ch_res.data:
+            return
+        channel = ch_res.data[0]
+        access_token = channel.get("access_token")
+        meta_phone_id = channel.get("meta_phone_id") or waba_id
+
+        if not access_token:
+            logger.warning(f"No access_token found for channel {channel_id}")
+            supabase.table("channels").update({"historical_sync_status": "completed"}).eq("id", channel_id).execute()
+            return
+
+        synced_count = 0
+        with httpx.Client() as client:
+            # Fetch Meta pages associated with the user token
+            pages_res = client.get(f"https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token&access_token={access_token}")
+            pages = pages_res.json().get("data", []) if pages_res.status_code == 200 else []
+
+            for page in pages:
+                p_id = page.get("id")
+                p_token = page.get("access_token")
+                if not p_token:
+                    continue
+
+                # Fetch real conversations from Meta Graph API
+                conv_res = client.get(
+                    f"https://graph.facebook.com/v18.0/{p_id}/conversations",
+                    params={
+                        "fields": "id,updated_time,participants,messages{id,message,from,created_time}",
+                        "access_token": p_token,
+                        "limit": 20
+                    }
+                )
+                if conv_res.status_code != 200:
+                    continue
+
+                conv_data = conv_res.json().get("data", [])
+                for meta_conv in conv_data:
+                    participants = meta_conv.get("participants", {}).get("data", [])
+                    cust_participant = None
+                    for p in participants:
+                        if p.get("id") != p_id:
+                            cust_participant = p
+                            break
+
+                    if not cust_participant:
+                        continue
+
+                    cust_name = cust_participant.get("name", "Meta Customer")
+                    ext_id = cust_participant.get("id")
+
+                    # Upsert Contact
+                    contact_res = supabase.table("contacts").select("*").eq("channel_id", channel_id).eq("external_id", ext_id).execute()
+                    if not contact_res.data:
+                        new_c = supabase.table("contacts").insert({
+                            "workspace_id": workspace_id,
+                            "channel_id": channel_id,
+                            "external_id": ext_id,
+                            "name": cust_name,
+                            "phone": f"+{ext_id}" if ext_id.isdigit() else ext_id
+                        }).execute()
+                        c_id = new_c.data[0]["id"]
+                    else:
+                        c_id = contact_res.data[0]["id"]
+                        if contact_res.data[0].get("name") != cust_name:
+                            supabase.table("contacts").update({"name": cust_name}).eq("id", c_id).execute()
+
+                    # Upsert Conversation
+                    conv_db = supabase.table("conversations").select("*").eq("contact_id", c_id).execute()
+                    if not conv_db.data:
+                        new_conv = supabase.table("conversations").insert({
+                            "workspace_id": workspace_id,
+                            "contact_id": c_id,
+                            "status": "open"
+                        }).execute()
+                        conv_db_id = new_conv.data[0]["id"]
+                    else:
+                        conv_db_id = conv_db.data[0]["id"]
+
+                    # Process Messages
+                    messages_list = meta_conv.get("messages", {}).get("data", [])
+                    for msg in messages_list:
+                        msg_id = msg.get("id")
+                        msg_body = msg.get("message", "")
+                        from_info = msg.get("from", {})
+                        from_id = from_info.get("id")
+                        created_time = msg.get("created_time")
+
+                        is_outbound = (from_id == p_id)
+                        direction = "out" if is_outbound else "in"
+                        source = "app_echo" if is_outbound else "customer"
+
+                        existing_m = supabase.table("messages").select("id").eq("meta_message_id", msg_id).execute()
+                        if not existing_m.data:
+                            supabase.table("messages").insert({
+                                "conversation_id": conv_db_id,
+                                "direction": direction,
+                                "source": source,
+                                "content": msg_body,
+                                "meta_message_id": msg_id,
+                                "sent_at": created_time,
+                                "is_historical": True
+                            }).execute()
+
+                    synced_count += 1
+
         supabase.table("channels").update({
             "historical_sync_status": "completed",
             "historical_sync_completed_at": datetime.utcnow().isoformat()
         }).eq("id", channel_id).execute()
-        logger.info("Historical Backfill complete.")
+        logger.info(f"Real WhatsApp Historical Backfill complete. Synced {synced_count} real conversations.")
     except Exception as e:
-        logger.error(f"Error during historical backfill: {e}")
+        logger.error(f"Error during real historical backfill: {e}")
         supabase.table("channels").update({
             "historical_sync_status": "completed",
             "historical_sync_completed_at": datetime.utcnow().isoformat()
