@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
+    localStorage.removeItem('is_demo_mode');
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -24,7 +25,13 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
+  const handleDemoLogin = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    }
+    localStorage.setItem('is_demo_mode', 'true');
     router.push('/dashboard');
   };
 

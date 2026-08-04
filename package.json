@@ -6,6 +6,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm install && npm run build",
     "start": "cd frontend && npm run start"
   }
