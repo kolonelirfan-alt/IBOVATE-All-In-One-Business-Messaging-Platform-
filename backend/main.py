@@ -60,14 +60,33 @@ async def verify_whatsapp_webhook(
         return PlainTextResponse(hub_challenge)
     raise HTTPException(status_code=403, detail="Verification failed")
 
+RAW_WEBHOOK_LOGS = []
+
 @app.post("/webhook/whatsapp")
 @app.post("/api/webhook/whatsapp")
 async def handle_whatsapp_webhook(request: Request):
     payload = await request.body()
+    try:
+        payload_str = payload.decode('utf-8', errors='ignore')
+        logger.info(f"RECEIVED WHATSAPP WEBHOOK POST: {payload_str}")
+        RAW_WEBHOOK_LOGS.append({
+            "timestamp": datetime.utcnow().isoformat(),
+            "type": "whatsapp",
+            "payload": payload_str
+        })
+        if len(RAW_WEBHOOK_LOGS) > 50:
+            RAW_WEBHOOK_LOGS.pop(0)
+    except Exception as e:
+        logger.warning(f"Webhook log error: {e}")
+
     verify_meta_signature(request, payload)
     data = await request.json()
     worker.process_whatsapp_webhook(data)
     return {"status": "ok"}
+
+@app.get("/api/internal/webhook-logs")
+async def get_raw_webhook_logs():
+    return {"data": RAW_WEBHOOK_LOGS}
 
 @app.get("/webhook/instagram")
 async def verify_instagram_webhook(

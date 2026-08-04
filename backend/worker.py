@@ -148,10 +148,16 @@ def simulate_historical_backfill(workspace_id: str, channel_id: str, waba_id: st
 def process_whatsapp_webhook(payload: dict):
     logger.info(f"Processing WhatsApp webhook: {payload}")
     try:
+        entries = payload.get("entry", [])
         changes_list = []
-        if "entry" in payload:
-            for entry in payload.get("entry", []):
-                changes_list.extend(entry.get("changes", []))
+        
+        if entries:
+            for entry in entries:
+                entry_id = str(entry.get("id", ""))
+                for change in entry.get("changes", []):
+                    ch_item = dict(change) if isinstance(change, dict) else {}
+                    ch_item["_entry_id"] = entry_id
+                    changes_list.append(ch_item)
         elif "value" in payload:
             changes_list.append(payload)
         elif "changes" in payload:
@@ -159,17 +165,27 @@ def process_whatsapp_webhook(payload: dict):
 
         for change in changes_list:
             value = change.get("value", change)
+            entry_id = change.get("_entry_id", "")
             
             # We need the phone_number_id to find our channel
             metadata = value.get("metadata", {})
-            phone_number_id = metadata.get("phone_number_id")
+            phone_number_id = str(metadata.get("phone_number_id") or value.get("phone_number_id") or "")
             
-            # Find channel by meta_phone_id, or fallback to active whatsapp channel for test payloads
+            # Find channel by meta_phone_id, external_account_id, or entry_id
             channel = None
             if phone_number_id:
-                channel_res = supabase.table("channels").select("*").eq("meta_phone_id", phone_number_id).execute()
-                if channel_res.data:
-                    channel = channel_res.data[0]
+                ch_res = supabase.table("channels").select("*").eq("meta_phone_id", phone_number_id).execute()
+                if not ch_res.data:
+                    ch_res = supabase.table("channels").select("*").eq("external_account_id", phone_number_id).execute()
+                if ch_res.data:
+                    channel = ch_res.data[0]
+            
+            if not channel and entry_id:
+                ch_res = supabase.table("channels").select("*").eq("external_account_id", entry_id).execute()
+                if not ch_res.data:
+                    ch_res = supabase.table("channels").select("*").eq("meta_phone_id", entry_id).execute()
+                if ch_res.data:
+                    channel = ch_res.data[0]
             
             if not channel:
                 # Fallback: use active WhatsApp channel from PRIMARY workspace
