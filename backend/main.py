@@ -687,6 +687,20 @@ async def delete_channel(channel_id: str):
     supabase_admin.table('channels').update({"status": "disconnected"}).eq('id', channel_id).execute()
     return {"status": "success"}
 
+@app.post("/api/channels/{channel_id}/token")
+async def update_channel_token(channel_id: str, request: Request):
+    """Update or refresh the Meta access token for a channel"""
+    data = await request.json()
+    token = data.get("access_token")
+    if not token:
+        raise HTTPException(status_code=400, detail="access_token required")
+    
+    res = supabase_admin.table('channels').update({
+        "access_token": token,
+        "status": "active"
+    }).eq('id', channel_id).execute()
+    return {"status": "success", "data": res.data[0] if res.data else None}
+
 @app.post("/api/channels/{channel_id}/coexistence")
 async def toggle_whatsapp_coexistence(channel_id: str, request: Request):
     """Toggle WhatsApp Coexistence mode on/off for a channel"""
